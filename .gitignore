@@ -1,0 +1,7 @@
+
+# python files
+*.pyc
+
+# ide files
+.idea
+
