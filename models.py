@@ -81,6 +81,7 @@ def fit_reinforcement(model, reinforcer, batch_size, epoch_size, nb_epochs):
     policy_shape = reinforcer.get_nb_actions()
     states = np.zeros(shape=(batch_size,) + input_shape)
     policy_grads = np.zeros(shape=(batch_size, policy_shape))
+    num_deaths = 0
 
     for epoch in range(nb_epochs):
         for batch in xrange(epoch_size):
@@ -99,4 +100,8 @@ def fit_reinforcement(model, reinforcer, batch_size, epoch_size, nb_epochs):
                 ins = [states, policy_grads]
             model.train_function(ins)
             print('\r%d / %d' % (batch, epoch_size), end='')
-        print('\r%d / %d :: Deaths = %d' % (epoch, nb_epochs, reinforcer.engine.n_deaths))
+        print('\r%d / %d :: Deaths = %d :: Score = %d' % (epoch+1,
+                                                          nb_epochs,
+                                                          reinforcer.engine.n_deaths - num_deaths,
+                                                          reinforcer.engine.score))
+        num_deaths = reinforcer.engine.n_deaths

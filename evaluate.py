@@ -3,7 +3,7 @@ from __future__ import print_function
 import numpy as np
 
 from keras.engine import Input, Model
-from keras.layers import Dense, Flatten, Dropout
+from keras.layers import Dense, Flatten, Dropout, Convolution2D, MaxPooling2D, Reshape
 
 from engine import TetrisEngine
 from models import Reinforcer, ReinforcementModel, fit_reinforcement
@@ -27,6 +27,7 @@ class TetrisReinforcer(Reinforcer):
 
         # parameters to track cost
         self.prev_height = 0
+        self.prev_score = 0
 
     def get_maximum_height(self, board):
         for i in xrange(board.shape[1]):
@@ -45,13 +46,19 @@ class TetrisReinforcer(Reinforcer):
         params = self.engine.step(action)
         policy = np.zeros_like(distribution)
 
+        # try to minimize height and avoid dying
         height = self.get_maximum_height(params['board'])
         if params['died']:
             policy[action] = 10 * lr
             self.prev_height = 0
         else:
-            policy[action] = (height - self.prev_height + penalty) * lr
+            policy[action] = (height - self.prev_height) * lr
             self.prev_height = height
+        policy += penalty
+
+        # try to increase score
+        score = params['score']
+        policy[action] -= (score - self.prev_score) * lr
 
         return policy
 
@@ -62,18 +69,20 @@ class TetrisReinforcer(Reinforcer):
 if __name__ == '__main__':
     width, height = 10, 20 # standard tetris friends rules
     batch_size = 20
-    epoch_size = 100
+    epoch_size = 1000
     nb_epochs = 100
 
     engine = TetrisEngine(width, height)
     reinforcer = TetrisReinforcer(engine)
 
     input = Input(shape=(width, height), dtype='float32')
-    flat = Flatten()
-    dropout = Dropout(0.5)
-    d1, d2 = Dense(100, activation='tanh', init='glorot_uniform'), Dense(engine.nb_actions, activation='softmax')
-    output = d2(dropout(d1(flat(input))))
-    model = ReinforcementModel(input=[input], output=[output])
+    reshape = Reshape((1, width, height))(input)
+    conv = Convolution2D(32, 2, 2)(reshape)
+    dropout = Dropout(0.5)(conv)
+    maxpool = MaxPooling2D((2, 2))(dropout)
+    flat = Flatten()(maxpool)
+    dense = Dense(engine.nb_actions, activation='softmax')(flat)
+    model = ReinforcementModel(input=[input], output=[dense])
     model.compile('sgd')
 
     # try training a regular model
