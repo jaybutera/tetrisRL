@@ -130,32 +130,37 @@ class TetrisEngine:
         self.board = new_board
 
     def step(self, action):
-        monitor_params = dict()
         self.anchor = (int(self.anchor[0]), int(self.anchor[1]))
         self.shape, self.anchor = self.value_action_map[action](self.shape, self.anchor, self.board)
         # Drop each step
         self.shape, self.anchor = soft_drop(self.shape, self.anchor, self.board)
+
+        # Update time and reward
         self.time += 1
-        monitor_params['time'] = self.time
-        monitor_params['died'] = False
+        reward = 1
+
+        done = False
         if self._has_dropped():
             self._set_piece(True)
             self._clear_lines()
             if np.any(self.board[:, 0]):
                 self.clear()
                 self.n_deaths += 1
-                monitor_params['died'] = True
+                done = True
+                reward = -10
             else:
                 self._new_piece()
-        monitor_params['score'] = self.score
-        monitor_params['board'] = self.board
-        return monitor_params
+
+        state = self.board
+        return state, reward, done
 
     def clear(self):
         self.time = 0
         self.score = 0
         self._new_piece()
         self.board = np.zeros_like(self.board)
+
+        return self.board
 
     def _set_piece(self, on=False):
         for i, j in self.shape:
