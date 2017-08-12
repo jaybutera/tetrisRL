@@ -28,7 +28,7 @@ while True:
     action = agent(obs)
 
     # Sim step takes action and returns results
-    obs, reward, done = engine.step(action)
+    obs, reward, done = env.step(action)
 
     # Done when game is lost
     if done:
