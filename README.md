@@ -21,7 +21,7 @@ env = TetrisEngine(width, height)
 Simulation loop
 ```python
 # Reset the environment
-obs = engine.clear()
+obs = env.clear()
 
 while True:
     # Get an action from a theoretical AI agent
