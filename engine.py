@@ -69,7 +69,7 @@ class TetrisEngine:
     def __init__(self, width, height):
         self.width = width
         self.height = height
-        self.board = np.zeros(shape=(width, height), dtype=np.bool)
+        self.board = np.zeros(shape=(width, height), dtype=np.float)
 
         # actions are triggered by letters
         self.value_action_map = {
@@ -107,17 +107,22 @@ class TetrisEngine:
                 return shapes[shape_names[i]]
 
     def _new_piece(self):
-        self.anchor = (self.width / 2, 0)
+        # Place randomly on x-axis with 2 tiles padding
+        x = int(self.width/2+1 * np.random.rand(1,1)[0,0]) + 2
+        #self.anchor = (self.width / 2, 0)
+        self.anchor = (x, 0)
         self.shape = self._choose_shape()
 
     def _has_dropped(self):
         return is_occupied(self.shape, (self.anchor[0], self.anchor[1] + 1), self.board)
 
     def _clear_lines(self):
-        can_clear = [np.all(self.board[:, i]) for i in xrange(self.height)]
+        can_clear = [np.all(self.board[:, i]) for i in range(self.height)]
+        if sum(can_clear) > 0:
+            print('can clear %d' % sum(can_clear))
         new_board = np.zeros_like(self.board)
         j = self.height - 1
-        for i in xrange(self.height - 1, -1, -1):
+        for i in range(self.height - 1, -1, -1):
             if not can_clear[i]:
                 new_board[:, j] = self.board[:, i]
                 j -= 1
@@ -126,7 +131,10 @@ class TetrisEngine:
 
     def step(self, action):
         monitor_params = dict()
+        self.anchor = (int(self.anchor[0]), int(self.anchor[1]))
         self.shape, self.anchor = self.value_action_map[action](self.shape, self.anchor, self.board)
+        # Drop each step
+        self.shape, self.anchor = soft_drop(self.shape, self.anchor, self.board)
         self.time += 1
         monitor_params['time'] = self.time
         monitor_params['died'] = False
@@ -153,7 +161,7 @@ class TetrisEngine:
         for i, j in self.shape:
             x, y = i + self.anchor[0], j + self.anchor[1]
             if x < self.width and x >= 0 and y < self.height and y >= 0:
-                self.board[self.anchor[0] + i, self.anchor[1] + j] = on
+                self.board[int(self.anchor[0] + i), int(self.anchor[1] + j)] = on
 
     def __repr__(self):
         self._set_piece(True)
