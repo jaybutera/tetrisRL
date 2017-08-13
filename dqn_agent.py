@@ -77,11 +77,11 @@ class DQN(nn.Module):
     def __init__(self):
         super(DQN, self).__init__()
         #self.conv1 = nn.Conv2d(3, 16, kernel_size=5, stride=2)
-        self.conv1 = nn.Conv2d(1, 16, kernel_size=3, stride=1)
-        self.bn1 = nn.BatchNorm2d(16)
-        self.conv2 = nn.Conv2d(16, 32, kernel_size=3, stride=1)
-        self.bn2 = nn.BatchNorm2d(32)
-        self.conv3 = nn.Conv2d(32, 32, kernel_size=3, stride=2)
+        self.conv1 = nn.Conv2d(1, 8, kernel_size=3, stride=1)
+        self.bn1 = nn.BatchNorm2d(8)
+        self.conv2 = nn.Conv2d(8, 16, kernel_size=3, stride=1)
+        self.bn2 = nn.BatchNorm2d(16)
+        self.conv3 = nn.Conv2d(16, 32, kernel_size=3, stride=2)
         self.bn3 = nn.BatchNorm2d(32)
         self.head = nn.Linear(448, engine.nb_actions)
 
@@ -141,7 +141,7 @@ def select_action(state):
         return model(
             Variable(state, volatile=True).type(FloatTensor)).data.max(1)[1].view(1, 1)
     else:
-        return FloatTensor([[random.randrange(2)]])
+        return FloatTensor([[random.randrange(engine.nb_actions)]])
 
 
 episode_durations = []
@@ -243,6 +243,8 @@ def load_checkpoint(filename=CHECKPOINT_FILE):
     model.load_state_dict(checkpoint['state_dict'])
     optimizer.load_state_dict(checkpoint['optimizer'])
     memory = checkpoint['memory']
+    # Low chance of random action
+    steps_done = 10 * EPS_DECAY
 
     return checkpoint['epoch'], checkpoint['best_score']
 
