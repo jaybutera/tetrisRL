@@ -1,4 +1,4 @@
-from __future__ import print_function
+#from __future__ import print_function
 
 import numpy as np
 import random
@@ -118,8 +118,6 @@ class TetrisEngine:
 
     def _clear_lines(self):
         can_clear = [np.all(self.board[:, i]) for i in range(self.height)]
-        if sum(can_clear) > 0:
-            print('can clear %d' % sum(can_clear))
         new_board = np.zeros_like(self.board)
         j = self.height - 1
         for i in range(self.height - 1, -1, -1):
