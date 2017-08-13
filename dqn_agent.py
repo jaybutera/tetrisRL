@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 import math
 import random
+import sys
+import os
+import shutil
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
@@ -15,7 +18,6 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 
 from engine import TetrisEngine
-
 
 width, height = 10, 20 # standard tetris friends rules
 engine = TetrisEngine(width, height)
@@ -115,6 +117,10 @@ GAMMA = 0.999
 EPS_START = 0.9
 EPS_END = 0.05
 EPS_DECAY = 200
+CHECKPOINT_FILE = 'checkpoint.pth.tar'
+
+
+steps_done = 0
 
 model = DQN()
 
@@ -123,9 +129,6 @@ if use_cuda:
 
 optimizer = optim.RMSprop(model.parameters())
 memory = ReplayMemory(10000)
-
-
-steps_done = 0
 
 
 def select_action(state):
@@ -230,6 +233,31 @@ def optimize_model():
         param.grad.data.clamp_(-1, 1)
     optimizer.step()
 
+def save_checkpoint(state, is_best, filename=CHECKPOINT_FILE):
+    torch.save(state, filename)
+    if is_best:
+        shutil.copyfile(filename, 'model_best.pth.tar')
+
+def load_checkpoint(filename=CHECKPOINT_FILE):
+    checkpoint = torch.load(filename)
+    model.load_state_dict(checkpoint['state_dict'])
+    optimizer.load_state_dict(checkpoint['optimizer'])
+    memory = checkpoint['memory']
+
+    return checkpoint['epoch'], checkpoint['best_score']
+
+# Check if user specified to resume from a checkpoint
+start_epoch = 0
+best_score = 0
+if len(sys.argv) > 1 and sys.argv[1] == 'resume':
+    if os.path.isfile(CHECKPOINT_FILE):
+        print("=> loading checkpoint '{}'".format(CHECKPOINT_FILE))
+        start_epoch, best_score = load_checkpoint()
+        print("=> loaded checkpoint '{}' (epoch {})"
+              .format(CHECKPOINT_FILE, start_epoch))
+    else:
+        print("=> no checkpoint found at '{}'".format(CHECKPOINT_FILE))
+
 ######################################################################
 #
 # Below, you can find the main training loop. At the beginning we reset
@@ -238,7 +266,7 @@ def optimize_model():
 # 1), and optimize our model once. When the episode ends (our model
 # fails), we restart the loop.
 
-for i_episode in count():#range(num_episodes):
+for i_episode in count(start_epoch):
     # Initialize the environment and state
     state = FloatTensor(engine.clear()[None,None,:,:])
 
@@ -261,9 +289,20 @@ for i_episode in count():#range(num_episodes):
 
         # Perform one step of the optimization (on the target network)
         if done:
+            # Train model
             if i_episode % 10 == 0:
                 print('epoch {0} score {1}'.format(i_episode, score))
                 optimize_model()
+            # Checkpoint
+            if i_episode % 100 == 0:
+                is_best = True if score > best_score else False
+                save_checkpoint({
+                    'epoch' : i_episode,
+                    'state_dict' : model.state_dict(),
+                    'best_score' : best_score,
+                    'optimizer' : optimizer.state_dict(),
+                    'memory' : memory
+                    }, is_best)
             break
 
 print('Complete')
