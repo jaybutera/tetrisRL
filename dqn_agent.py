@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-import gym
 import math
 import random
 import numpy as np
@@ -8,19 +7,16 @@ import matplotlib.pyplot as plt
 from collections import namedtuple
 from itertools import count
 from copy import deepcopy
-from PIL import Image
 
 import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 from torch.autograd import Variable
-import torchvision.transforms as T
 
 from engine import TetrisEngine
 
 
-#env = gym.make('CartPole-v0').unwrapped
 width, height = 10, 20 # standard tetris friends rules
 engine = TetrisEngine(width, height)
 
@@ -94,55 +90,6 @@ class DQN(nn.Module):
         return self.head(x.view(x.size(0), -1))
 
 
-'''
-resize = T.Compose([T.ToPILImage(),
-                    T.Scale(40, interpolation=Image.CUBIC),
-                    T.ToTensor()])
-
-# This is based on the code from gym.
-screen_width = 600
-
-
-def get_cart_location():
-    world_width = env.x_threshold * 2
-    scale = screen_width / world_width
-    return int(env.state[0] * scale + screen_width / 2.0)  # MIDDLE OF CART
-
-
-def get_screen():
-    screen = env.render(mode='rgb_array').transpose(
-        (2, 0, 1))  # transpose into torch order (CHW)
-    # Strip off the top and bottom of the screen
-    screen = screen[:, 160:320]
-    view_width = 320
-    cart_location = get_cart_location()
-    if cart_location < view_width // 2:
-        slice_range = slice(view_width)
-    elif cart_location > (screen_width - view_width // 2):
-        slice_range = slice(-view_width, None)
-    else:
-        slice_range = slice(cart_location - view_width // 2,
-                            cart_location + view_width // 2)
-    # Strip off the edges, so that we have a square image centered on a cart
-    screen = screen[:, :, slice_range]
-    # Convert to float, rescare, convert to torch tensor
-    # (this doesn't require a copy)
-    screen = np.ascontiguousarray(screen, dtype=np.float32) / 255
-    screen = torch.from_numpy(screen)
-    # Resize, and add a batch dimension (BCHW)
-    return resize(screen).unsqueeze(0).type(Tensor)
-'''
-
-#env.reset()
-'''
-plt.figure()
-plt.imshow(get_screen().cpu().squeeze(0).permute(1, 2, 0).numpy(),
-           interpolation='none')
-plt.title('Example extracted screen')
-plt.show()
-'''
-
-
 ######################################################################
 # Training
 # --------
@@ -161,11 +108,6 @@ plt.show()
 #    probability of choosing a random action will start at ``EPS_START``
 #    and will decay exponentially towards ``EPS_END``. ``EPS_DECAY``
 #    controls the rate of the decay.
-# -  ``plot_durations`` - a helper for plotting the durations of episodes,
-#    along with an average over the last 100 episodes (the measure used in
-#    the official evaluations). The plot will be underneath the cell
-#    containing the main training loop, and will update after every
-#    episode.
 #
 
 BATCH_SIZE = 128
@@ -261,8 +203,6 @@ def optimize_model():
                                                 if s is not None]),
                                      volatile=True)
     state_batch = Variable(torch.cat(batch.state))
-    #print(batch.action)
-    #print(list(map(list,batch.action)))
     action_batch = Variable(torch.cat(batch.action))
     reward_batch = Variable(torch.cat(batch.reward))
 
@@ -298,66 +238,33 @@ def optimize_model():
 # 1), and optimize our model once. When the episode ends (our model
 # fails), we restart the loop.
 
-#num_episodes = 10000
 for i_episode in count():#range(num_episodes):
     # Initialize the environment and state
-    #monitor_params = engine.step(action)
-    #state = FloatTensor(engine.board[None,None,:,:]) # (nSamples x nChannels x height x width)
     state = FloatTensor(engine.clear()[None,None,:,:])
-    #done = monitor_params['died']
-    #reward = FloatTensor([0.])
-    #env.reset()
-    #last_screen = get_screen()
-    #current_screen = get_screen()
-    #state = current_screen - last_screen
+
     score = 0
     for t in count():
         # Select and perform an action
         action = select_action(state).type(LongTensor)
-        #_, reward, done, _ = env.step(action[0, 0])
-        #monitor_params = engine.step(action[0,0])
-        state, reward, done = engine.step(action[0,0])
-        state = FloatTensor(state[None,None,:,:])
+
         # Observations
         last_state = state
-        #state = FloatTensor
-        #state = FloatTensor(monitor_params['board'][None,None,:,:])
-        #done  = monitor_params['died']
-        #reward = monitor_params['score'] - reward
+        state, reward, done = engine.step(action[0,0])
+        state = FloatTensor(state[None,None,:,:])
+
+        # Accumulate reward
         score += int(reward)
 
         reward = FloatTensor([reward])
-
-        # Observe new state
-        #last_screen = current_screen
-        #current_screen = get_screen()
-        #if not done:
-            #next_state = current_screen - last_screen
-        #else:
-            #next_state = None
-
         # Store the transition in memory
         memory.push(last_state, action, state, reward)
 
-        # Move to the next state
-        #state = next_state
-
         # Perform one step of the optimization (on the target network)
-        #print(engine)
         if done:
             if i_episode % 10 == 0:
                 print('epoch {0} score {1}'.format(i_episode, score))
-                #if (score > 0):
-                    #print('score {0}'.format(score))
-                #print('epoch {0} score {1}'.format(i_episode, score))
                 optimize_model()
             break
-        '''
-        if done:
-            episode_durations.append(t + 1)
-            plot_durations()
-            break
-        '''
 
 print('Complete')
 #env.render(close=True)
