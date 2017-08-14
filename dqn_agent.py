@@ -84,7 +84,7 @@ class DQN(nn.Module):
         self.conv3 = nn.Conv2d(16, 32, kernel_size=3, stride=2)
         self.bn3 = nn.BatchNorm2d(32)
         #self.rnn = nn.LSTM(448, 240)
-        self.head = nn.Linear(240, engine.nb_actions)
+        self.head = nn.Linear(448, engine.nb_actions)
 
     def forward(self, x):
         x = F.relu(self.bn1(self.conv1(x)))
@@ -269,7 +269,7 @@ if len(sys.argv) > 1 and sys.argv[1] == 'resume':
 # 1), and optimize our model once. When the episode ends (our model
 # fails), we restart the loop.
 
-f = open('log.out')
+f = open('log.out', 'w+')
 for i_episode in count(start_epoch):
     # Initialize the environment and state
     state = FloatTensor(engine.clear()[None,None,:,:])
@@ -297,7 +297,7 @@ for i_episode in count(start_epoch):
             if i_episode % 10 == 0:
                 log = 'epoch {0} score {1}'.format(i_episode, score)
                 print(log)
-                f.write(log)
+                f.write(log + '\n')
                 optimize_model()
             # Checkpoint
             if i_episode % 100 == 0:
