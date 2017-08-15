@@ -249,71 +249,72 @@ def load_checkpoint(filename=CHECKPOINT_FILE):
 
     return checkpoint['epoch'], checkpoint['best_score']
 
-# Check if user specified to resume from a checkpoint
-start_epoch = 0
-best_score = 0
-if len(sys.argv) > 1 and sys.argv[1] == 'resume':
-    if os.path.isfile(CHECKPOINT_FILE):
-        print("=> loading checkpoint '{}'".format(CHECKPOINT_FILE))
-        start_epoch, best_score = load_checkpoint()
-        print("=> loaded checkpoint '{}' (epoch {})"
-              .format(CHECKPOINT_FILE, start_epoch))
-    else:
-        print("=> no checkpoint found at '{}'".format(CHECKPOINT_FILE))
+if __name__ == '__main__':
+    # Check if user specified to resume from a checkpoint
+    start_epoch = 0
+    best_score = 0
+    if len(sys.argv) > 1 and sys.argv[1] == 'resume':
+        if os.path.isfile(CHECKPOINT_FILE):
+            print("=> loading checkpoint '{}'".format(CHECKPOINT_FILE))
+            start_epoch, best_score = load_checkpoint()
+            print("=> loaded checkpoint '{}' (epoch {})"
+                  .format(CHECKPOINT_FILE, start_epoch))
+        else:
+            print("=> no checkpoint found at '{}'".format(CHECKPOINT_FILE))
 
-######################################################################
-#
-# Below, you can find the main training loop. At the beginning we reset
-# the environment and initialize the ``state`` variable. Then, we sample
-# an action, execute it, observe the next screen and the reward (always
-# 1), and optimize our model once. When the episode ends (our model
-# fails), we restart the loop.
+    ######################################################################
+    #
+    # Below, you can find the main training loop. At the beginning we reset
+    # the environment and initialize the ``state`` variable. Then, we sample
+    # an action, execute it, observe the next screen and the reward (always
+    # 1), and optimize our model once. When the episode ends (our model
+    # fails), we restart the loop.
 
-f = open('log.out', 'w+')
-for i_episode in count(start_epoch):
-    # Initialize the environment and state
-    state = FloatTensor(engine.clear()[None,None,:,:])
+    f = open('log.out', 'w+')
+    for i_episode in count(start_epoch):
+        # Initialize the environment and state
+        state = FloatTensor(engine.clear()[None,None,:,:])
 
-    score = 0
-    for t in count():
-        # Select and perform an action
-        action = select_action(state).type(LongTensor)
+        score = 0
+        for t in count():
+            # Select and perform an action
+            action = select_action(state).type(LongTensor)
 
-        # Observations
-        last_state = state
-        state, reward, done = engine.step(action[0,0])
-        state = FloatTensor(state[None,None,:,:])
+            # Observations
+            last_state = state
+            state, reward, done = engine.step(action[0,0])
+            state = FloatTensor(state[None,None,:,:])
 
-        # Accumulate reward
-        score += int(reward)
+            # Accumulate reward
+            score += int(reward)
 
-        reward = FloatTensor([reward])
-        # Store the transition in memory
-        memory.push(last_state, action, state, reward)
+            reward = FloatTensor([reward])
+            # Store the transition in memory
+            memory.push(last_state, action, state, reward)
 
-        # Perform one step of the optimization (on the target network)
-        if done:
-            # Train model
-            if i_episode % 10 == 0:
-                log = 'epoch {0} score {1}'.format(i_episode, score)
-                print(log)
-                f.write(log + '\n')
-                optimize_model()
-            # Checkpoint
-            if i_episode % 100 == 0:
-                is_best = True if score > best_score else False
-                save_checkpoint({
-                    'epoch' : i_episode,
-                    'state_dict' : model.state_dict(),
-                    'best_score' : best_score,
-                    'optimizer' : optimizer.state_dict(),
-                    'memory' : memory
-                    }, is_best)
-            break
+            # Perform one step of the optimization (on the target network)
+            if done:
+                # Train model
+                if i_episode % 10 == 0:
+                    log = 'epoch {0} score {1}'.format(i_episode, score)
+                    print(log)
+                    f.write(log + '\n')
+                    optimize_model()
+                # Checkpoint
+                if i_episode % 100 == 0:
+                    is_best = True if score > best_score else False
+                    save_checkpoint({
+                        'epoch' : i_episode,
+                        'state_dict' : model.state_dict(),
+                        'best_score' : best_score,
+                        'optimizer' : optimizer.state_dict(),
+                        'memory' : memory
+                        }, is_best)
+                break
 
-f.close()
-print('Complete')
-#env.render(close=True)
-#env.close()
-#plt.ioff()
-#plt.show()
+    f.close()
+    print('Complete')
+    #env.render(close=True)
+    #env.close()
+    #plt.ioff()
+    #plt.show()
