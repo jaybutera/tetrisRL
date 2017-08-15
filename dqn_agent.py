@@ -288,7 +288,7 @@ if __name__ == '__main__':
             # Accumulate reward
             score += int(reward)
 
-            reward = FloatTensor([reward])
+            reward = FloatTensor([float(reward)])
             # Store the transition in memory
             memory.push(last_state, action, state, reward)
 

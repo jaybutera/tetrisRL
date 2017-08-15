@@ -127,6 +127,8 @@ class TetrisEngine:
         self.score += sum(can_clear)
         self.board = new_board
 
+        return sum(can_clear)
+
     def step(self, action):
         self.anchor = (int(self.anchor[0]), int(self.anchor[1]))
         self.shape, self.anchor = self.value_action_map[action](self.shape, self.anchor, self.board)
@@ -140,7 +142,7 @@ class TetrisEngine:
         done = False
         if self._has_dropped():
             self._set_piece(True)
-            self._clear_lines()
+            reward += 10 * self._clear_lines()
             if np.any(self.board[:, 0]):
                 self.clear()
                 self.n_deaths += 1
