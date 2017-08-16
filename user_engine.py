@@ -1,11 +1,11 @@
-import pygame
+import curses
 import time
 from engine import TetrisEngine
 
-def play_game():
-    last_tick = pygame.time.get_ticks()
-    refresh_rate = 300
-    print(engine)
+def play_game(stdscr):
+    refresh_rate = 200
+    #print(engine)
+    stdscr.addstr(str(engine))
 
     done = False
     # Global action
@@ -13,32 +13,29 @@ def play_game():
 
     while not done:
         action = 6
-        events = pygame.event.get()
-        for event in events:
-            print(event)
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_LEFT or event.key == pygame.K_l:
-                    action = 0 # Shift left
-                if event.key == pygame.K_RIGHT or event.key == pygame.K_d:
-                    action = 1 # Shift right
-                if event.key == pygame.K_UP or event.key == pygame.K_w:
-                    action = 2 # Hard drop
-                if event.key == pygame.K_DOWN or event.key == pygame.K_s:
-                    action = 3 # Soft drop
-                if event.key == pygame.K_q:
-                    action = 4 # Rotate left
-                if event.key == pygame.K_e:
-                    action = 5 # Rotate right
+        key = stdscr.getch()
 
-        # Game update
-        now = pygame.time.get_ticks()
-        if now - last_tick > refresh_rate:
-            print(action)
-            last_tick = now
-            # Game step
-            state, reward, done = engine.step(action)
-            # Update render
-            #print(engine)
+        if key == -1: # No key pressed
+            action = 6
+        elif key == ord('a'):
+            action = 0
+        elif key == ord('d'):
+            action = 1
+        elif key == ord('w'):
+            action = 2
+        elif key == ord('s'):
+            action = 3
+        elif key == ord('q'):
+            action = 4
+        elif key == ord('e'):
+            action = 5
+
+        # Game step
+        state, reward, done = engine.step(action)
+
+        # Render
+        stdscr.clear()
+        stdscr.addstr(str(engine))
 
 def play_again():
     print('Play Again? [y/n]')
@@ -47,9 +44,26 @@ def play_again():
 
     return True if choice.lower == 'y' else False
 
+def terminate(stdscr):
+    curses.nocbreak()
+    stdscr.keypad(False)
+    curses.echo()
+    curses.endwin()
+
+def init():
+    stdscr = curses.initscr()
+    # Don't display user input
+    curses.noecho()
+    # React to keys without pressing enter (300ms delay)
+    #curses.cbreak()
+    curses.halfdelay(7)
+    # Enumerate keys
+    stdscr.keypad(True)
+
+    return stdscr
+
 if __name__ == '__main__':
-    pygame.init()
-    pygame.display.iconify()
+    stdscr = init()
 
     # Init environment
     width, height = 10, 20 # standard tetris friends rules
@@ -58,9 +72,11 @@ if __name__ == '__main__':
     # Play games on repeat
     while True:
         engine.clear()
-        play_game()
+        play_game(stdscr)
 
         # Prompt to play again
+        terminate(stdscr)
         if not play_again():
             print('Thanks for contributing!')
             break
+        stdscr = init()

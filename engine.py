@@ -64,6 +64,9 @@ def rotate_right(shape, anchor, board):
     new_shape = rotated(shape, cclk=True)
     return (shape, anchor) if is_occupied(new_shape, anchor, board) else (new_shape, anchor)
 
+def idle(shape, anchor, board):
+    return (shape, anchor)
+
 
 class TetrisEngine:
     def __init__(self, width, height):
@@ -79,6 +82,7 @@ class TetrisEngine:
             3: soft_drop,
             4: rotate_left,
             5: rotate_right,
+            6: idle,
         }
         self.action_value_map = dict([(j, i) for i, j in self.value_action_map.items()])
         self.nb_actions = len(self.value_action_map)
