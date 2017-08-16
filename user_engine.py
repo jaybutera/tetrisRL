@@ -1,5 +1,6 @@
 import curses
 import numpy as np
+import os
 from engine import TetrisEngine
 
 def play_game():
@@ -94,10 +95,19 @@ if __name__ == '__main__':
         terminate()
         # Should the game info be saved?
         if save_game():
-            with open('training_data.npy', 'ab') as f:
+            try:
+                fr = open('training_data.npy', 'rb')
+                x = np.load(fr)
+                fr.close()
+                fw = open('training_data.npy', 'wb')
+                x = np.concatenate((x,db))
                 print('Saving {0} moves...'.format(len(db)))
-                np.save(f, db)
-                print('Saved!')
+                np.save(fw, x)
+            except:
+                print('no training file exists. Creating one now...')
+                fw = open('training_data.npy', 'wb')
+                print('Saving {0} moves...'.format(len(db)))
+                np.save(fw, db)
         # Prompt to play again
         if not play_again():
             print('Thanks for contributing!')
