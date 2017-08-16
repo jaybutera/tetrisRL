@@ -112,7 +112,8 @@ class TetrisEngine:
 
     def _new_piece(self):
         # Place randomly on x-axis with 2 tiles padding
-        x = int(self.width/2+1 * np.random.rand(1,1)[0,0]) + 2
+        x = int((self.width/2+1) * np.random.rand(1,1)[0,0]) + 2
+        #x = int(np.random.rand(1,1)[0,0]) + 2
         #self.anchor = (self.width / 2, 0)
         self.anchor = (x, 0)
         self.shape = self._choose_shape()
