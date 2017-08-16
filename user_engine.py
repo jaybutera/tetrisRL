@@ -103,7 +103,8 @@ if __name__ == '__main__':
                 x = np.concatenate((x,db))
                 print('Saving {0} moves...'.format(len(db)))
                 np.save(fw, x)
-            except:
+                print('{0} data points in the training set'.format(len(x)))
+            except Exception as e:
                 print('no training file exists. Creating one now...')
                 fw = open('training_data.npy', 'wb')
                 print('Saving {0} moves...'.format(len(db)))

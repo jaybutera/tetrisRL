@@ -7,6 +7,7 @@ $ git clone https://github.com/jaybutera/tetrisRL
 
 ## Usage
 
+### Using the Environment
 The interface is similar to an [OpenAI Gym](https://gym.openai.com/docs) environment. 
 
 Initialize the Tetris RL environment
@@ -34,3 +35,20 @@ while True:
     if done:
         break
 ```
+
+### Play Tetris for Training Data
+Play games and accumulate a data set for a supervised learning algorithm to
+trian on. An element of data stores a
+(state, reward, done, action) tuple for each frame of the game.
+
+You may notice the rules are slightly different than normal Tetris.
+Specifically, each action you take will result in a corresponding soft drop
+This is how the AI will play and therefore how the training data must be taken.
+
+To play Tetris:
+```bash
+$ python user_engine.py
+```
+
+At the end of each game, choose whether you want to store the information of
+that game in the data set.
