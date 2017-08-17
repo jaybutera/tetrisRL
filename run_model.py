@@ -31,13 +31,13 @@ def run(model):
             volatile=True).type(FloatTensor)).data)
 
         state, reward, done = engine.step(action[0,0])
-        print(state)
         state = FloatTensor(state[None,None,:,:])
 
         # Accumulate reward
         score += int(reward)
 
         print(engine)
+        print(action)
         time.sleep(.1)
 
         if done:
