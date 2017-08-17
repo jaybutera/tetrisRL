@@ -1,5 +1,8 @@
 ![TETRIS RL](https://github.com/jaybutera/tetris-environment/blob/master/tetrisRL_logo.png)
 
+[![PyPI
+version](https://badge.fury.io/py/tetrisrl.svg)](https://badge.fury.io/py/tetrisrl)
+
 ## Installation
 ```bash
 $ git clone https://github.com/jaybutera/tetrisRL
