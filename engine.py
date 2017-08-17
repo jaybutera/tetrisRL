@@ -156,7 +156,9 @@ class TetrisEngine:
             else:
                 self._new_piece()
 
+        self._set_piece(True)
         state = self.board
+        #self._set_piece(False)
         return state, reward, done
 
     def clear(self):
