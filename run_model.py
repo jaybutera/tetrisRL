@@ -35,6 +35,7 @@ def run(model):
         score += int(reward)
 
         print(engine)
+        print(action)
         time.sleep(.1)
 
         if done:
@@ -49,7 +50,7 @@ if __name__ == '__main__':
     filename = sys.argv[1]
     if os.path.isfile(filename):
         print("=> loading model '{}'".format(filename))
-        model = load_model(filename)
+        model = load_model(filename).eval()
         run(model)
     else:
         print("=> no file found at '{}'".format(filename))

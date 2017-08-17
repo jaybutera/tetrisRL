@@ -18,6 +18,12 @@ def train(X_batch, Y_batch):
 
     return loss.data[0]
 
+def save_checkpoint(state, filename):
+    torch.save(state, filename)
+
+#def load_model():
+    #torch.load(
+
 if __name__ == '__main__':
     model = DQN()
     optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
@@ -32,7 +38,7 @@ if __name__ == '__main__':
     # Training loop
     for epoch in range(100):
         # Randomize and batch training data
-        batchsize = 4
+        batchsize = 8
         # Randomly shuffle each epoch
         np.random.shuffle(X_train)
         np.random.shuffle(Y_train)
@@ -47,5 +53,9 @@ if __name__ == '__main__':
             loss += train(X_batch, Y_batch)
 
         if epoch % 10 == 0:
+            save_checkpoint({
+                'epoch' : epoch,
+                'state_dict' : model.state_dict()
+                }, 'supervised_checkpoint.pth.tar')
             print('[{0}] loss: {1}'.format(epoch+1, loss))
 
