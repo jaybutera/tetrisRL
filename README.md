@@ -68,7 +68,7 @@ To play Tetris:
 $ python user_engine.py
 ```
 
-Controls:
+Controls:  
 W: Hard drop (piece falls to the bottom)  
 A: Shift left  
 S: Soft drop (piece falls one tile)  
