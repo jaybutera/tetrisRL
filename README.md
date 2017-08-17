@@ -3,6 +3,12 @@
 ## Installation
 ```bash
 $ git clone https://github.com/jaybutera/tetrisRL
+$ cd tetrisRL
+$ python setup.py install
+```
+or
+```bash
+$ pip install tetrisrl
 ```
 
 ## Layout

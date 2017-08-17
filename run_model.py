@@ -27,8 +27,8 @@ def run(model):
     while True:
         action = model(Variable(state,
             volatile=True).type(FloatTensor)).data.max(1)[1].view(1,1).type(LongTensor)
-        print( model(Variable(state,
-            volatile=True).type(FloatTensor)).data)
+        #print( model(Variable(state,
+        #    volatile=True).type(FloatTensor)).data)
 
         state, reward, done = engine.step(action[0,0])
         state = FloatTensor(state[None,None,:,:])
