@@ -5,6 +5,15 @@
 $ git clone https://github.com/jaybutera/tetrisRL
 ```
 
+## Layout
+* dqn_agent.py - DQN reinforcement learning agent trains on tetris
+* supervised_agent.py - The same convolutional model as DQN trains on a dataset of user playthroughs
+* user_engine.py - Play tetris and accumulate information as a training set
+* run_model.py - Evaluate a saved agent model on a visual game of tetris (i.e.)
+```bash
+$ python run_model.py checkpoint.pth.tar
+```
+
 ## Usage
 
 ### Using the Environment
@@ -49,6 +58,14 @@ To play Tetris:
 ```bash
 $ python user_engine.py
 ```
+
+Controls:
+W: Hard drop (piece falls to the bottom)
+A: Shift left
+S: Soft drop (piece falls one tile)
+D: Shift right
+Q: Rotate left
+E: Rotate right
 
 At the end of each game, choose whether you want to store the information of
 that game in the data set.
