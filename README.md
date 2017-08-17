@@ -69,12 +69,12 @@ $ python user_engine.py
 ```
 
 Controls:
-W: Hard drop (piece falls to the bottom)
-A: Shift left
-S: Soft drop (piece falls one tile)
-D: Shift right
-Q: Rotate left
-E: Rotate right
+W: Hard drop (piece falls to the bottom)  
+A: Shift left  
+S: Soft drop (piece falls one tile)  
+D: Shift right  
+Q: Rotate left  
+E: Rotate right  
 
 At the end of each game, choose whether you want to store the information of
 that game in the data set.
