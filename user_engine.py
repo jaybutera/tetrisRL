@@ -53,6 +53,7 @@ def play_again():
     return True if choice.lower() == 'y' else False
 
 def save_game():
+    print('Accumulated reward: {0} | {1} moves'.format(sum([i[1] for i in db]), len(db)))
     print('Would you like to store the game info as training data? [y/n]')
     #stdscr.addstr('Would you like to store the game info as training data? [y/n]\n')
     #stdscr.addstr('> ')
@@ -101,7 +102,7 @@ if __name__ == '__main__':
                 fr.close()
                 fw = open('training_data.npy', 'wb')
                 x = np.concatenate((x,db))
-                print('Saving {0} moves...'.format(len(db)))
+                #print('Saving {0} moves...'.format(len(db)))
                 np.save(fw, x)
                 print('{0} data points in the training set'.format(len(x)))
             except Exception as e:
