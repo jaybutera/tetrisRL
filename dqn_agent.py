@@ -5,8 +5,8 @@ import sys
 import os
 import shutil
 import numpy as np
-import matplotlib
-import matplotlib.pyplot as plt
+#import matplotlib
+#import matplotlib.pyplot as plt
 from collections import namedtuple
 from itertools import count
 from copy import deepcopy
@@ -23,11 +23,11 @@ width, height = 10, 20 # standard tetris friends rules
 engine = TetrisEngine(width, height)
 
 # set up matplotlib
-is_ipython = 'inline' in matplotlib.get_backend()
-if is_ipython:
-    from IPython import display
+#is_ipython = 'inline' in matplotlib.get_backend()
+#if is_ipython:
+    #from IPython import display
 
-plt.ion()
+#plt.ion()
 
 # if gpu is to be used
 use_cuda = torch.cuda.is_available()
@@ -76,12 +76,12 @@ class DQN(nn.Module):
 
     def __init__(self):
         super(DQN, self).__init__()
-        #self.conv1 = nn.Conv2d(3, 16, kernel_size=5, stride=2)
-        self.conv1 = nn.Conv2d(1, 8, kernel_size=3, stride=1)
-        self.bn1 = nn.BatchNorm2d(8)
-        self.conv2 = nn.Conv2d(8, 16, kernel_size=3, stride=1)
-        self.bn2 = nn.BatchNorm2d(16)
-        self.conv3 = nn.Conv2d(16, 32, kernel_size=3, stride=2)
+        #self.conv1 = nn.Conv2d(1, 16, kernel_size=5, stride=2)
+        self.conv1 = nn.Conv2d(1, 16, kernel_size=3, stride=1)
+        self.bn1 = nn.BatchNorm2d(16)
+        self.conv2 = nn.Conv2d(16, 32, kernel_size=3, stride=1)
+        self.bn2 = nn.BatchNorm2d(32)
+        self.conv3 = nn.Conv2d(32, 32, kernel_size=3, stride=2)
         self.bn3 = nn.BatchNorm2d(32)
         #self.rnn = nn.LSTM(448, 240)
         self.head = nn.Linear(448, engine.nb_actions)
@@ -128,6 +128,7 @@ model = DQN()
 if use_cuda:
     model.cuda()
 
+loss = nn.MSELoss()
 optimizer = optim.RMSprop(model.parameters())
 memory = ReplayMemory(10000)
 
@@ -234,18 +235,28 @@ def optimize_model():
         param.grad.data.clamp_(-1, 1)
     optimizer.step()
 
-def save_checkpoint(state, is_best, filename=CHECKPOINT_FILE):
+def optimize_supervised(pred, targ):
+    optimizer.zero_grad()
+
+    diff = loss(pred, targ)
+    diff.backward()
+    optimizer.step()
+
+def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
     torch.save(state, filename)
     if is_best:
         shutil.copyfile(filename, 'model_best.pth.tar')
 
-def load_checkpoint(filename=CHECKPOINT_FILE):
+def load_checkpoint(filename):
     checkpoint = torch.load(filename)
     model.load_state_dict(checkpoint['state_dict'])
-    optimizer.load_state_dict(checkpoint['optimizer'])
-    memory = checkpoint['memory']
+    try: # If these fail, its loading a supervised model
+        optimizer.load_state_dict(checkpoint['optimizer'])
+        memory = checkpoint['memory']
+    except Exception as e:
+        pass
     # Low chance of random action
-    steps_done = 10 * EPS_DECAY
+    #steps_done = 10 * EPS_DECAY
 
     return checkpoint['epoch'], checkpoint['best_score']
 
@@ -254,9 +265,11 @@ if __name__ == '__main__':
     start_epoch = 0
     best_score = 0
     if len(sys.argv) > 1 and sys.argv[1] == 'resume':
+        if len(sys.argv) > 2:
+            CHECKPOINT_FILE = sys.argv[2]
         if os.path.isfile(CHECKPOINT_FILE):
             print("=> loading checkpoint '{}'".format(CHECKPOINT_FILE))
-            start_epoch, best_score = load_checkpoint()
+            start_epoch, best_score = load_checkpoint(CHECKPOINT_FILE)
             print("=> loaded checkpoint '{}' (epoch {})"
                   .format(CHECKPOINT_FILE, start_epoch))
         else:

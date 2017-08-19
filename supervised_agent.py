@@ -55,6 +55,7 @@ if __name__ == '__main__':
         if epoch % 10 == 0:
             save_checkpoint({
                 'epoch' : epoch,
+                'best_score' : 0.,
                 'state_dict' : model.state_dict()
                 }, 'supervised_checkpoint.pth.tar')
             print('[{0}] loss: {1}'.format(epoch+1, loss))
