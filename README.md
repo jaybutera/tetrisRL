@@ -4,6 +4,9 @@
 version](https://badge.fury.io/py/tetrisrl.svg)](https://badge.fury.io/py/tetrisrl)
 
 ## Installation
+You need to have [pytorch](http://pytorch.org/) pre-installed. Easy to use
+download scripts can be found on their website.
+
 ```bash
 $ git clone https://github.com/jaybutera/tetrisRL
 $ cd tetrisRL
