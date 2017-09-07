@@ -112,10 +112,9 @@ class TetrisEngine:
 
     def _new_piece(self):
         # Place randomly on x-axis with 2 tiles padding
-        x = int((self.width/2+1) * np.random.rand(1,1)[0,0]) + 2
-        #x = int(np.random.rand(1,1)[0,0]) + 2
-        #self.anchor = (self.width / 2, 0)
-        self.anchor = (x, 0)
+        #x = int((self.width/2+1) * np.random.rand(1,1)[0,0]) + 2
+        self.anchor = (self.width / 2, 0)
+        #self.anchor = (x, 0)
         self.shape = self._choose_shape()
 
     def _has_dropped(self):
@@ -134,6 +133,16 @@ class TetrisEngine:
 
         return sum(can_clear)
 
+    def valid_action_count(self):
+        valid_action_sum = 0
+
+        for value, fn in self.value_action_map.items():
+            # If they're equal, it is not a valid action
+            if fn(self.shape, self.anchor, self.board) != (self.shape, self.anchor):
+                valid_action_sum += 1
+
+        return valid_action_sum
+
     def step(self, action):
         self.anchor = (int(self.anchor[0]), int(self.anchor[1]))
         self.shape, self.anchor = self.value_action_map[action](self.shape, self.anchor, self.board)
@@ -142,7 +151,8 @@ class TetrisEngine:
 
         # Update time and reward
         self.time += 1
-        reward = 1
+        reward = self.valid_action_count()
+        #reward = 1
 
         done = False
         if self._has_dropped():

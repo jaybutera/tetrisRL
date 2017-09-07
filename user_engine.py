@@ -39,6 +39,7 @@ def play_game():
         # Render
         stdscr.clear()
         stdscr.addstr(str(env))
+        stdscr.addstr('reward: ' + str(reward))
 
     return db
 

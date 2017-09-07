@@ -76,20 +76,21 @@ class DQN(nn.Module):
 
     def __init__(self):
         super(DQN, self).__init__()
-        #self.conv1 = nn.Conv2d(1, 16, kernel_size=5, stride=2)
         self.conv1 = nn.Conv2d(1, 16, kernel_size=3, stride=1)
         self.bn1 = nn.BatchNorm2d(16)
-        self.conv2 = nn.Conv2d(16, 32, kernel_size=3, stride=1)
+        self.conv2 = nn.Conv2d(16, 32, kernel_size=4, stride=2)
         self.bn2 = nn.BatchNorm2d(32)
-        self.conv3 = nn.Conv2d(32, 32, kernel_size=3, stride=2)
-        self.bn3 = nn.BatchNorm2d(32)
+        #self.conv3 = nn.Conv2d(32, 32, kernel_size=2, stride=2)
+        #self.bn3 = nn.BatchNorm2d(32)
         #self.rnn = nn.LSTM(448, 240)
-        self.head = nn.Linear(448, engine.nb_actions)
+        self.lin1 = nn.Linear(768, 256)
+        self.head = nn.Linear(256, engine.nb_actions)
 
     def forward(self, x):
         x = F.relu(self.bn1(self.conv1(x)))
         x = F.relu(self.bn2(self.conv2(x)))
-        x = F.relu(self.bn3(self.conv3(x)))
+        #x = F.relu(self.bn3(self.conv3(x)))
+        x = F.relu(self.lin1(x.view(x.size(0), -1)))
         return self.head(x.view(x.size(0), -1))
 
 
@@ -113,7 +114,7 @@ class DQN(nn.Module):
 #    controls the rate of the decay.
 #
 
-BATCH_SIZE = 128
+BATCH_SIZE = 64
 GAMMA = 0.999
 EPS_START = 0.9
 EPS_END = 0.05
@@ -124,13 +125,14 @@ CHECKPOINT_FILE = 'checkpoint.pth.tar'
 steps_done = 0
 
 model = DQN()
+print(model)
 
 if use_cuda:
     model.cuda()
 
 loss = nn.MSELoss()
-optimizer = optim.RMSprop(model.parameters())
-memory = ReplayMemory(10000)
+optimizer = optim.RMSprop(model.parameters(), lr=.001)
+memory = ReplayMemory(3000)
 
 
 def select_action(state):
@@ -235,6 +237,8 @@ def optimize_model():
         param.grad.data.clamp_(-1, 1)
     optimizer.step()
 
+    return loss.data[0] if loss else loss
+
 def optimize_supervised(pred, targ):
     optimizer.zero_grad()
 
@@ -312,7 +316,9 @@ if __name__ == '__main__':
                     log = 'epoch {0} score {1}'.format(i_episode, score)
                     print(log)
                     f.write(log + '\n')
-                    optimize_model()
+                    loss = optimize_model()
+                    if loss:
+                        print('loss: {:.0f}'.format(loss))
                 # Checkpoint
                 if i_episode % 100 == 0:
                     is_best = True if score > best_score else False
