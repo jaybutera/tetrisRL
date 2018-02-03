@@ -236,8 +236,9 @@ def optimize_model():
     for param in model.parameters():
         param.grad.data.clamp_(-1, 1)
     optimizer.step()
-
-    return loss.data[0] if loss else loss
+    
+    if len(loss.data)>0 : return loss.data[0] 
+    else : return loss
 
 def optimize_supervised(pred, targ):
     optimizer.zero_grad()
