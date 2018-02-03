@@ -31,6 +31,7 @@ engine = TetrisEngine(width, height)
 
 # if gpu is to be used
 use_cuda = torch.cuda.is_available()
+if use_cuda:print("....Using Gpu...")
 FloatTensor = torch.cuda.FloatTensor if use_cuda else torch.FloatTensor
 LongTensor = torch.cuda.LongTensor if use_cuda else torch.LongTensor
 ByteTensor = torch.cuda.ByteTensor if use_cuda else torch.ByteTensor
@@ -302,7 +303,7 @@ if __name__ == '__main__':
             last_state = state
             state, reward, done = engine.step(action[0,0])
             state = FloatTensor(state[None,None,:,:])
-
+            
             # Accumulate reward
             score += int(reward)
 

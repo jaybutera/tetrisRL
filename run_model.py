@@ -7,6 +7,7 @@ from dqn_agent import DQN, ReplayMemory, Transition
 from torch.autograd import Variable
 
 use_cuda = torch.cuda.is_available()
+
 FloatTensor = torch.cuda.FloatTensor if use_cuda else torch.FloatTensor
 LongTensor = torch.cuda.LongTensor if use_cuda else torch.LongTensor
 
@@ -15,7 +16,8 @@ engine = TetrisEngine(width, height)
 
 def load_model(filename):
     model = DQN()
-
+    if use_cuda:
+        model.cuda()
     checkpoint = torch.load(filename)
     model.load_state_dict(checkpoint['state_dict'])
 
