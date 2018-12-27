@@ -57,6 +57,8 @@ while True:
         break
 ```
 
+## Example Usages
+
 ### Play Tetris for Training Data
 Play games and accumulate a data set for a supervised learning algorithm to
 trian on. An element of data stores a
@@ -80,4 +82,29 @@ Q: Rotate left
 E: Rotate right  
 
 At the end of each game, choose whether you want to store the information of
-that game in the data set.
+that game in the data set. Data accumulates in a local file called 'training_data.npy'.
+
+### Example supervised learning agent from data
+Run the supervised agent file and specify the standard training data file generated in the previous step as a command
+line argument.
+```bash
+$ python supervised_agent.py training_data.npy
+```
+
+### Example reinforcement learning agent
+```bash
+# Start from a new randomized dqn agent
+$ python dqn_agent.py
+# Start from a the last recorded dqn checkpoint
+$ python dqn_agent.py resume
+# Specify a custom checkpoint
+$ python dqn_agent.py resume supervised_checkpoint.pth.tar
+```
+
+The DQN agent currently optimizes on a metric of freedom of action. In essence the agent should learn to maximize
+the entropy of the board. A player in Tetris has the most freedom of action when the area is clear of pieces.
+
+### Watch a checkpoint play a game
+```bash
+$ python run_model.py checkpoint.pth.tar
+```
