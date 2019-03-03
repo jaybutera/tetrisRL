@@ -32,7 +32,7 @@ def run(model):
         print( model(Variable(state,
             volatile=True).type(FloatTensor)).data)
 
-        state, reward, done = engine.step(action[0,0])
+        state, reward, done = engine.step(int(action[0,0]))
         state = FloatTensor(state[None,None,:,:])
 
         # Accumulate reward
