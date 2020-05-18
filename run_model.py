@@ -1,3 +1,4 @@
+import curses
 import sys
 import os
 import torch
@@ -38,8 +39,11 @@ def run(model):
         # Accumulate reward
         score += int(reward)
 
-        print(engine)
-        print(action)
+        stdscr = curses.initscr()
+        stdscr.clear()
+        stdscr.addstr(str(engine))
+        stdscr.addstr('\ncumulative reward: ' + str(score))
+        stdscr.addstr('\nreward: ' + str(reward))
         time.sleep(.1)
 
         if done:

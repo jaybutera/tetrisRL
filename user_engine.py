@@ -9,6 +9,7 @@ def play_game():
     # Initial rendering
     stdscr.addstr(str(env))
 
+    reward_sum = 0
     done = False
     # Global action
     action = 6
@@ -34,12 +35,14 @@ def play_game():
 
         # Game step
         state, reward, done = env.step(action)
+        reward_sum += reward
         db.append((state,reward,done,action))
 
         # Render
         stdscr.clear()
         stdscr.addstr(str(env))
-        stdscr.addstr('reward: ' + str(reward))
+        stdscr.addstr('\ncumulative reward: ' + str(reward_sum))
+        stdscr.addstr('\nreward: ' + str(reward))
 
     return db
 

@@ -144,8 +144,12 @@ def select_action(state):
     steps_done += 1
     if sample > eps_threshold:
         with torch.no_grad():
-            return model(
-                Variable(state).type(FloatTensor)).data.max(1)[1].view(1, 1)
+            actions = model(Variable(state).type(FloatTensor))
+            final_action = actions.data.max(1)[1].view(1, 1)
+            # print the prob distribution sometimes
+            if random.random() < 0.001:
+                print(actions)
+            return final_action
     else:
         return FloatTensor([[random.randrange(engine.nb_actions)]])
 
@@ -309,7 +313,8 @@ if __name__ == '__main__':
 
             reward = FloatTensor([float(reward)])
             # Store the transition in memory
-            memory.push(last_state, action, state, reward)
+            if reward > 0:
+                memory.push(last_state, action, state, reward)
 
             # Perform one step of the optimization (on the target network)
             if done:
