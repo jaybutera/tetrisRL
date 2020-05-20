@@ -1,4 +1,5 @@
 import click
+import curses
 import numpy as np
 import torch as T
 import torch.nn as nn
@@ -120,9 +121,18 @@ def main(episode, load, learn, debug, random_rate, session):
             state, reward, done = env.step(action)
             agent.store_rewards(reward)
             score += reward
-            if i % 100 == 0 and counter % 100 == 1:
+            if debug:
+                stdscr = curses.initscr()
+                stdscr.clear()
+                stdscr.addstr(str(env))
+                stdscr.addstr('\ncumulative reward: ' + str(score))
+                stdscr.addstr('\nreward: ' + str(reward))
+                time.sleep(.1)
+                continue
+
+            if not debug and i % 100 == 0 and counter % 100 == 1:
                 print('episode: ', i, 'counter: ', counter, 'reward %0.3f' % reward, 'action: %s (%0.2f)' % (action, prob))
-        if i % 100 == 0:
+        if not debug and i % 100 == 0:
             print('episode: ', i, 'score %0.3f' % score)
         score_history.append(score)
         if learn:
