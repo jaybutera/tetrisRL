@@ -163,7 +163,7 @@ class TetrisEngine:
                 self.clear()
                 self.n_deaths += 1
                 done = True
-                reward = -10
+                reward = -100
             else:
                 self._new_piece()
 

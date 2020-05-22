@@ -6,8 +6,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import random
+import time
 from engine import TetrisEngine
-
+from torch.utils.tensorboard import SummaryWriter
+writer = SummaryWriter()
 
 class PolicyNetwork(nn.Module):
     def __init__(self, lr, input_dims, fc1_dims, fc2_dims, n_actions):
@@ -40,6 +42,7 @@ class Agent(object):
         self.reward_memory = []
         self.action_memory = []
         self.policy = PolicyNetwork(lr, input_dims, l1_size, l2_size, n_actions)
+        self.loss_idx = 0
 
     def choose_action(self, observation):
         probabilities = F.softmax(self.policy.forward(observation))
@@ -67,13 +70,13 @@ class Agent(object):
                 discount *= self.gamma
             G[t] = G_sum
         mean = np.mean(G)
-        std = np.std(G) if np.std(G) > 0 else 1
-        G = (G - mean) / std
         G = T.tensor(G, dtype=T.float).to(self.policy.device)
         loss = 0
         for g, lobprob in zip(G, self.action_memory):
             loss += -g * lobprob
         loss.backward()
+        writer.add_scalar("policy network loss", loss.item(), self.loss_idx)
+        self.loss_idx += 1
         self.policy.optimizer.step()
         self.action_memory = []
         self.reward_memory = []
@@ -91,10 +94,10 @@ def main(episode, load, learn, debug, random_rate, session):
     print("load model", load_model, "learn", learn, "debug", debug, "episode", episode)
 
 
-    width, height = 10, 20 # standard tetris friends rules
+    width, height = 7, 14 # standard tetris friends rules
     env = TetrisEngine(width, height)
     action_count = 7
-    agent = Agent(lr=0.001, input_dims=width*height, gamma=0.99, n_actions=action_count, l1_size=128, l2_size=128)
+    agent = Agent(lr=1e-4, input_dims=width*height, gamma=0.5, n_actions=action_count, l1_size=512, l2_size=128)
     if session:
         model_filename = "%s-trained_model.torch" % session
     else:
@@ -102,9 +105,10 @@ def main(episode, load, learn, debug, random_rate, session):
     parameter_size = sum([len(p) for p in agent.policy.parameters()])
     print("network parameter size:", parameter_size)
 
+    action_idx = 0
+
     if load_model:
         agent.policy.load_state_dict(T.load(model_filename))
-    score_history = []
     for i in range(episode):
         done = False
         score = 0
@@ -112,12 +116,8 @@ def main(episode, load, learn, debug, random_rate, session):
         counter = 0
         while not done:
             counter += 1
-            if random.random() < random_rate:
-                action = random.randint(0, len(actions) - 1)
-                prob = -1
-            else:
-                action, probs = agent.choose_action(state)
-                prob = probs[action].item()
+            action, probs = agent.choose_action(state)
+            prob = probs[action].item()
             state, reward, done = env.step(action)
             agent.store_rewards(reward)
             score += reward
@@ -127,20 +127,34 @@ def main(episode, load, learn, debug, random_rate, session):
                 stdscr.addstr(str(env))
                 stdscr.addstr('\ncumulative reward: ' + str(score))
                 stdscr.addstr('\nreward: ' + str(reward))
-                time.sleep(.1)
+                time.sleep(.2)
                 continue
 
             if not debug and i % 100 == 0 and counter % 100 == 1:
+                idx2direction = {
+                    0: "left",
+                    1: "right",
+                    2: "hard_drop",
+                    3: "soft_drop",
+                    4: "rotate_left",
+                    5: "rotate_right",
+                    6: "idle"
+                }
+                probs_str = ""
+                for z, item in enumerate(probs):
+                    probs_str += "%s:%0.2f, " % (idx2direction[z], item.item())
+                print(probs_str)
                 print('episode: ', i, 'counter: ', counter, 'reward %0.3f' % reward, 'action: %s (%0.2f)' % (action, prob))
+            writer.add_scalar("action prob", prob, action_idx)
+            action_idx += 1
+
         if not debug and i % 100 == 0:
             print('episode: ', i, 'score %0.3f' % score)
-        score_history.append(score)
+        writer.add_scalar("final score", score, i)
         if learn:
-            if score > 0:
-                agent.learn()
-                if i % 100 == 0:
-                    T.save(agent.policy.state_dict(), model_filename)
-            else:
-                agent.clear()
+            agent.learn()
+            if i % 1000 == 0:
+                T.save(agent.policy.state_dict(), model_filename)
+    writer.close()
 if __name__ == '__main__':
     main()
