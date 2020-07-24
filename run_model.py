@@ -1,3 +1,4 @@
+import curses
 import sys
 import os
 import torch
@@ -32,14 +33,17 @@ def run(model):
         print( model(Variable(state,
             volatile=True).type(FloatTensor)).data)
 
-        state, reward, done = engine.step(action[0,0])
+        state, reward, done = engine.step(action.item())
         state = FloatTensor(state[None,None,:,:])
 
         # Accumulate reward
         score += int(reward)
 
-        print(engine)
-        print(action)
+        stdscr = curses.initscr()
+        stdscr.clear()
+        stdscr.addstr(str(engine))
+        stdscr.addstr('\ncumulative reward: ' + str(score))
+        stdscr.addstr('\nreward: ' + str(reward))
         time.sleep(.1)
 
         if done:

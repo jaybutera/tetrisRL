@@ -143,8 +143,13 @@ def select_action(state):
         math.exp(-1. * steps_done / EPS_DECAY)
     steps_done += 1
     if sample > eps_threshold:
-        return model(
-            Variable(state, volatile=True).type(FloatTensor)).data.max(1)[1].view(1, 1)
+        with torch.no_grad():
+            actions = model(Variable(state).type(FloatTensor))
+            final_action = actions.data.max(1)[1].view(1, 1)
+            # print the prob distribution sometimes
+            if random.random() < 0.001:
+                print(actions)
+            return final_action
     else:
         return FloatTensor([[random.randrange(engine.nb_actions)]])
 
@@ -207,9 +212,9 @@ def optimize_model():
     # We don't want to backprop through the expected action values and volatile
     # will save us on temporarily changing the model parameters'
     # requires_grad to False!
-    non_final_next_states = Variable(torch.cat([s for s in batch.next_state
-                                                if s is not None]),
-                                     volatile=True)
+    with torch.no_grad():
+        non_final_next_states = Variable(torch.cat([s for s in batch.next_state
+                                                if s is not None]))
     state_batch = Variable(torch.cat(batch.state))
     action_batch = Variable(torch.cat(batch.action))
     reward_batch = Variable(torch.cat(batch.reward))
@@ -219,12 +224,12 @@ def optimize_model():
     state_action_values = model(state_batch).gather(1, action_batch)
 
     # Compute V(s_{t+1}) for all next states.
-    next_state_values = Variable(torch.zeros(BATCH_SIZE).type(FloatTensor))
+    with torch.no_grad():
+        next_state_values = Variable(torch.zeros(BATCH_SIZE).type(FloatTensor))
     next_state_values[non_final_mask] = model(non_final_next_states).max(1)[0]
     # Now, we don't want to mess up the loss with a volatile flag, so let's
     # clear it. After this, we'll just end up with a Variable that has
     # requires_grad=False
-    next_state_values.volatile = False
     # Compute the expected Q values
     expected_state_action_values = (next_state_values * GAMMA) + reward_batch
 
@@ -237,9 +242,8 @@ def optimize_model():
     for param in model.parameters():
         param.grad.data.clamp_(-1, 1)
     optimizer.step()
-    
-    if len(loss.data)>0 : return loss.data[0] 
-    else : return loss
+
+    return loss.item()
 
 def optimize_supervised(pred, targ):
     optimizer.zero_grad()
@@ -301,7 +305,7 @@ if __name__ == '__main__':
 
             # Observations
             last_state = state
-            state, reward, done = engine.step(action[0,0])
+            state, reward, done = engine.step(action.item())
             state = FloatTensor(state[None,None,:,:])
             
             # Accumulate reward
@@ -309,7 +313,8 @@ if __name__ == '__main__':
 
             reward = FloatTensor([float(reward)])
             # Store the transition in memory
-            memory.push(last_state, action, state, reward)
+            if reward > 0:
+                memory.push(last_state, action, state, reward)
 
             # Perform one step of the optimization (on the target network)
             if done:

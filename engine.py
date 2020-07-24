@@ -152,17 +152,18 @@ class TetrisEngine:
         # Update time and reward
         self.time += 1
         reward = self.valid_action_count()
-        #reward = 1
+        #reward = random.randint(0, 0)
+        reward = 1
 
         done = False
         if self._has_dropped():
             self._set_piece(True)
-            reward += 10 * self._clear_lines()
+            reward += 100 * self._clear_lines()
             if np.any(self.board[:, 0]):
                 self.clear()
                 self.n_deaths += 1
                 done = True
-                reward = -10
+                reward = -100
             else:
                 self._new_piece()
 
