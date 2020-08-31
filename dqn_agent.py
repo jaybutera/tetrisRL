@@ -35,6 +35,7 @@ if use_cuda:print("....Using Gpu...")
 FloatTensor = torch.cuda.FloatTensor if use_cuda else torch.FloatTensor
 LongTensor = torch.cuda.LongTensor if use_cuda else torch.LongTensor
 ByteTensor = torch.cuda.ByteTensor if use_cuda else torch.ByteTensor
+BoolTensor = torch.cuda.BoolTensor if use_cuda else torch.BoolTensor
 #Tensor = FloatTensor
 
 
@@ -206,7 +207,7 @@ def optimize_model():
     batch = Transition(*zip(*transitions))
 
     # Compute a mask of non-final states and concatenate the batch elements
-    non_final_mask = ByteTensor(tuple(map(lambda s: s is not None,
+    non_final_mask = BoolTensor(tuple(map(lambda s: s is not None,
                                           batch.next_state)))
 
     # We don't want to backprop through the expected action values and volatile
@@ -233,6 +234,8 @@ def optimize_model():
     # Compute the expected Q values
     expected_state_action_values = (next_state_values * GAMMA) + reward_batch
 
+    # reshape the target tensor identical to input, to avoid mishaps
+    expected_state_action_values = expected_state_action_values.view(-1, 1)
     # Compute Huber loss
     loss = F.smooth_l1_loss(state_action_values, expected_state_action_values)
 
