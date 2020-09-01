@@ -19,6 +19,8 @@ from torch.autograd import Variable
 
 from engine import TetrisEngine
 
+from time import time
+
 width, height = 10, 20 # standard tetris friends rules
 engine = TetrisEngine(width, height)
 
@@ -148,8 +150,8 @@ def select_action(state):
             actions = model(Variable(state).type(FloatTensor))
             final_action = actions.data.max(1)[1].view(1, 1)
             # print the prob distribution sometimes
-            if random.random() < 0.001:
-                print(actions)
+            # if random.random() < 0.001:
+                # print(actions)
             return final_action
     else:
         return FloatTensor([[random.randrange(engine.nb_actions)]])
@@ -295,7 +297,8 @@ if __name__ == '__main__':
     # an action, execute it, observe the next screen and the reward (always
     # 1), and optimize our model once. When the episode ends (our model
     # fails), we restart the loop.
-
+    
+    # start = time()
     f = open('log.out', 'w+')
     for i_episode in count(start_epoch):
         # Initialize the environment and state
@@ -328,7 +331,7 @@ if __name__ == '__main__':
                     f.write(log + '\n')
                     loss = optimize_model()
                     if loss:
-                        print('loss: {:.0f}'.format(loss))
+                        print(f'loss: {loss}')
                 # Checkpoint
                 if i_episode % 100 == 0:
                     is_best = True if score > best_score else False
@@ -341,6 +344,8 @@ if __name__ == '__main__':
                         }, is_best)
                 break
 
+        # if time() - start > 14400:
+        #     break
     f.close()
     print('Complete')
     #env.render(close=True)

@@ -28,10 +28,9 @@ def run(model):
     state = FloatTensor(engine.clear()[None,None,:,:])
     score = 0
     while True:
-        action = model(Variable(state,
-            volatile=True).type(FloatTensor)).data.max(1)[1].view(1,1).type(LongTensor)
-        print( model(Variable(state,
-            volatile=True).type(FloatTensor)).data)
+        with torch.no_grad():
+            action = model(Variable(state).type(FloatTensor)).data.max(1)[1].view(1,1).type(LongTensor)
+            # print(model(Variable(state).type(FloatTensor)).data)
 
         state, reward, done = engine.step(action.item())
         state = FloatTensor(state[None,None,:,:])
