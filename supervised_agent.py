@@ -1,11 +1,13 @@
-from dqn_agent import DQN
+from dqn_agent import BasicFF
 import numpy as np
 import torch.optim as optim
 import torch.nn as nn
 import torch
 
 # Hyperparameters
+epochs = 1000
 batch_size = 32
+lr = 1e-4
 # -----------
 
 def train(X_batch, Y_batch):
@@ -47,21 +49,21 @@ def get_batch(split):
     return x,y
 
 if __name__ == '__main__':
-    model = DQN()
-    optimizer = optim.Adam(model.parameters(), lr=0.001)
+    model = BasicFF()
+    optimizer = optim.Adam(model.parameters(), lr=lr)
     criterion = nn.CrossEntropyLoss()
 
     # Load data
     X_train, Y_train, X_val, Y_val = load_dataset('training_data.npy')
 
     # Training loop
-    for epoch in range(100):
+    for epoch in range(epochs):
         # Randomize and batch training data
         X_batch,Y_batch = get_batch('train')
         loss = 0.
         loss += train(X_batch, Y_batch)
 
-        if epoch % 10 == 0:
+        if epoch % 300 == 0:
             save_checkpoint({
                 'epoch' : epoch,
                 'best_score' : 0.,

@@ -4,7 +4,7 @@ import os
 import torch
 import time
 from engine import TetrisEngine
-from dqn_agent import DQN, ReplayMemory, Transition
+from dqn_agent import BasicFF, ReplayMemory, Transition
 from torch.autograd import Variable
 
 use_cuda = torch.cuda.is_available()
@@ -16,7 +16,7 @@ width, height = 10, 20 # standard tetris friends rules
 engine = TetrisEngine(width, height)
 
 def load_model(filename):
-    model = DQN()
+    model = BasicFF()
     if use_cuda:
         model.cuda()
     checkpoint = torch.load(filename)

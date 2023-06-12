@@ -73,10 +73,11 @@ class ReplayMemory(object):
         return len(self.memory)
 
 
+'''
 class DQN(nn.Module):
 
     def __init__(self):
-        super(DQN, self).__init__()
+        super().__init__()
         self.conv1 = nn.Conv2d(1, 16, kernel_size=3, stride=1)
         self.bn1 = nn.BatchNorm2d(16)
         self.conv2 = nn.Conv2d(16, 32, kernel_size=4, stride=2)
@@ -93,8 +94,25 @@ class DQN(nn.Module):
         #x = F.relu(self.bn3(self.conv3(x)))
         x = F.relu(self.lin1(x.view(x.size(0), -1)))
         return self.head(x.view(x.size(0), -1))
+'''
 
+class BasicFF(nn.Module):
+    def __init__(self, fan_in=200, fan_out=7):
+        super().__init__()
+        self.bn1 = nn.BatchNorm1d(fan_in)
+        self.ff1 = nn.Linear(fan_in, 600)
+        self.bn2 = nn.BatchNorm1d(600)
+        self.ff2 = nn.Linear(600, 800)
+        self.bn3 = nn.BatchNorm1d(800)
+        self.ff3 = nn.Linear(800, fan_out)
 
+    def forward(self, x):
+        if len(x.shape) == 4:
+            x = x.view(x.shape[0], -1)
+        h = self.ff1(self.bn1(x))
+        h = self.ff2(self.bn2(h))
+        return self.ff3(self.bn3(h))
+       
 ######################################################################
 # Training
 # --------
@@ -121,23 +139,12 @@ EPS_START = 0.9
 EPS_END = 0.05
 EPS_DECAY = 200
 CHECKPOINT_FILE = 'checkpoint.pth.tar'
-
-
 steps_done = 0
 
-model = DQN()
-print(model)
 
-if use_cuda:
-    model.cuda()
-
-loss = nn.MSELoss()
-optimizer = optim.RMSprop(model.parameters(), lr=.001)
-memory = ReplayMemory(3000)
-
-
-def select_action(state):
-    global steps_done
+@torch.no_grad()
+def select_action(state, steps_done):
+    model.eval()
     sample = random.random()
     eps_threshold = EPS_END + (EPS_START - EPS_END) * \
         math.exp(-1. * steps_done / EPS_DECAY)
@@ -147,10 +154,12 @@ def select_action(state):
             actions = model(Variable(state).type(FloatTensor))
             final_action = actions.data.max(1)[1].view(1, 1)
             # print the prob distribution sometimes
-            if random.random() < 0.001:
-                print(actions)
+            #if random.random() < 0.001:
+                #print(actions)
+            model.train()
             return final_action
     else:
+        model.train()
         return FloatTensor([[random.randrange(engine.nb_actions)]])
 
 
@@ -271,6 +280,16 @@ def load_checkpoint(filename):
     return checkpoint['epoch'], checkpoint['best_score']
 
 if __name__ == '__main__':
+    model = BasicFF()
+    print(model)
+
+    if use_cuda:
+        model.cuda()
+
+    loss = nn.MSELoss()
+    optimizer = optim.RMSprop(model.parameters(), lr=.001)
+    memory = ReplayMemory(3000)
+
     # Check if user specified to resume from a checkpoint
     start_epoch = 0
     best_score = 0
@@ -293,6 +312,7 @@ if __name__ == '__main__':
     # 1), and optimize our model once. When the episode ends (our model
     # fails), we restart the loop.
 
+    steps_done = 0
     f = open('log.out', 'w+')
     for i_episode in count(start_epoch):
         # Initialize the environment and state
@@ -301,7 +321,7 @@ if __name__ == '__main__':
         score = 0
         for t in count():
             # Select and perform an action
-            action = select_action(state).type(LongTensor)
+            action = select_action(state, steps_done).type(LongTensor)
 
             # Observations
             last_state = state
@@ -319,13 +339,13 @@ if __name__ == '__main__':
             # Perform one step of the optimization (on the target network)
             if done:
                 # Train model
-                if i_episode % 10 == 0:
+                if i_episode % 100 == 0:
                     log = 'epoch {0} score {1}'.format(i_episode, score)
-                    print(log)
+                    #print(log)
                     f.write(log + '\n')
                     loss = optimize_model()
                     if loss:
-                        print('loss: {:.0f}'.format(loss))
+                        print(f'[{i_episode}] loss: {loss:.2f}')
                 # Checkpoint
                 if i_episode % 100 == 0:
                     is_best = True if score > best_score else False
