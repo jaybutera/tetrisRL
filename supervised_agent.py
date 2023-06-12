@@ -3,10 +3,10 @@ import numpy as np
 import torch.optim as optim
 import torch.nn as nn
 import torch
-from torch.autograd import Variable
+#from torch.autograd import Variable
 
-FloatTensor = torch.FloatTensor
-LongTensor = torch.LongTensor
+#FloatTensor = torch.FloatTensor
+#LongTensor = torch.LongTensor
 
 def train(X_batch, Y_batch):
     optimizer.zero_grad()
@@ -16,7 +16,7 @@ def train(X_batch, Y_batch):
     loss.backward()
     optimizer.step()
 
-    return loss.data[0]
+    return loss.item()
 
 def save_checkpoint(state, filename):
     torch.save(state, filename)
@@ -27,12 +27,10 @@ def save_checkpoint(state, filename):
 def load_dataset(filename):
     data = np.load('training_data.npy', allow_pickle=True)
     X_train = np.stack(data[:,0],
-            axis=0).reshape((len(data),1,len(data[0][0]),len(data[0][0][0])))
-    Y_train = data[:,3]
+            axis=0).reshape((len(data),1,len(data[0][0]),len(data[0][0][0]))) # States reshaped for CNN
+    Y_train = data[:,3] # player's moves
 
-    print(X_train.shape)
-    print(Y_train.shape)
-    return X_train, Y_train
+    return X_train.astype('float32'), Y_train.astype('uint8')
 
 if __name__ == '__main__':
     model = DQN()
@@ -45,7 +43,7 @@ if __name__ == '__main__':
     # Training loop
     for epoch in range(100):
         # Randomize and batch training data
-        batchsize = 8
+        batchsize = 32
         # Randomly shuffle each epoch
         np.random.shuffle(X_train)
         np.random.shuffle(Y_train)
@@ -55,8 +53,8 @@ if __name__ == '__main__':
 
         loss = 0.
         for X_batch, Y_batch in zip(X,Y):
-            X_batch = Variable(FloatTensor(X_batch), requires_grad=True)
-            Y_batch = Variable(LongTensor(Y_batch), requires_grad=False)
+            X_batch = torch.tensor(X_batch, requires_grad=False)
+            Y_batch = torch.tensor(Y_batch, requires_grad=False)
             #Y_batch = Variable(LongTensor(Y_batch), raequires_grad=False)
             loss += train(X_batch, Y_batch)
 
