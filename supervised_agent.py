@@ -24,16 +24,23 @@ def save_checkpoint(state, filename):
 #def load_model():
     #torch.load(
 
-if __name__ == '__main__':
-    model = DQN()
-    optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
-    criterion = nn.CrossEntropyLoss()
-
-    # Load data
-    data = np.load('training_data.npy')
+def load_dataset(filename):
+    data = np.load('training_data.npy', allow_pickle=True)
     X_train = np.stack(data[:,0],
             axis=0).reshape((len(data),1,len(data[0][0]),len(data[0][0][0])))
     Y_train = data[:,3]
+
+    print(X_train.shape)
+    print(Y_train.shape)
+    return X_train, Y_train
+
+if __name__ == '__main__':
+    model = DQN()
+    optimizer = optim.Adam(model.parameters(), lr=0.001)
+    criterion = nn.CrossEntropyLoss()
+
+    # Load data
+    X_train, Y_train = load_dataset('training_data.npy')
 
     # Training loop
     for epoch in range(100):
@@ -50,6 +57,7 @@ if __name__ == '__main__':
         for X_batch, Y_batch in zip(X,Y):
             X_batch = Variable(FloatTensor(X_batch), requires_grad=True)
             Y_batch = Variable(LongTensor(Y_batch), requires_grad=False)
+            #Y_batch = Variable(LongTensor(Y_batch), raequires_grad=False)
             loss += train(X_batch, Y_batch)
 
         if epoch % 10 == 0:

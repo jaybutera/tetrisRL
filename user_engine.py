@@ -6,6 +6,12 @@ from engine import TetrisEngine
 def play_game():
     # Store play information
     db = []
+    '''
+    states = []
+    rewards = []
+    done_flags = []
+    actions = []
+    '''
     # Initial rendering
     stdscr.addstr(str(env))
 
@@ -36,7 +42,13 @@ def play_game():
         # Game step
         state, reward, done = env.step(action)
         reward_sum += reward
-        db.append((state,reward,done,action))
+        db.append(np.array((state,reward,done,action)))
+        '''
+        states.append(state)
+        rewards.append(reward)
+        done_flags.append(done)
+        actions.append(action)
+        '''
 
         # Render
         stdscr.clear()
@@ -44,19 +56,25 @@ def play_game():
         stdscr.addstr('\ncumulative reward: ' + str(reward_sum))
         stdscr.addstr('\nreward: ' + str(reward))
 
+    '''
+    db = {
+        'states' : np.array(states),
+        'rewards' : np.array(rewards),
+        'done_flags' : np.array(done_flags),
+        'actions' : np.array(actions),
+    }
+    '''
     return db
 
 def play_again():
-    #stdscr.addstr('Play Again? [y/n]')
     print('Play Again? [y/n]')
     print('> ', end='')
-    #stdscr.addstr('> ')
     choice = input()
-    #choice = stdscr.getch()
 
     return True if choice.lower() == 'y' else False
 
-def save_game():
+def prompt_save_game():
+    #print('Accumulated reward: {0} | {1} moves'.format(sum(db['rewards']), db['actions'].shape[0]))
     print('Accumulated reward: {0} | {1} moves'.format(sum([i[1] for i in db]), len(db)))
     print('Would you like to store the game info as training data? [y/n]')
     #stdscr.addstr('Would you like to store the game info as training data? [y/n]\n')
@@ -65,11 +83,24 @@ def save_game():
     choice = input()
     return True if choice.lower() == 'y' else False
 
+def save_game(path='training_data.npy'):
+    if os.path.exists(path):
+        x = np.load(path, allow_pickle=True)
+        x = np.concatenate((x,db))
+        np.save(path, x)
+        print('{0} data points in the training set'.format(len(x)))
+    else:
+        print('no training file exists. Creating one now...')
+        #fw = open('training_data.npy', 'wb')
+        print('Saving {0} moves...'.format(len(db)))
+        np.save(path, db)
+
 def terminate():
     curses.nocbreak()
     stdscr.keypad(False)
     curses.echo()
     curses.endwin()
+    os.system("stty sane")
 
 def init():
     # Don't display user input
@@ -99,21 +130,8 @@ if __name__ == '__main__':
         # Return to terminal
         terminate()
         # Should the game info be saved?
-        if save_game():
-            try:
-                fr = open('training_data.npy', 'rb')
-                x = np.load(fr)
-                fr.close()
-                fw = open('training_data.npy', 'wb')
-                x = np.concatenate((x,db))
-                #print('Saving {0} moves...'.format(len(db)))
-                np.save(fw, x)
-                print('{0} data points in the training set'.format(len(x)))
-            except Exception as e:
-                print('no training file exists. Creating one now...')
-                fw = open('training_data.npy', 'wb')
-                print('Saving {0} moves...'.format(len(db)))
-                np.save(fw, db)
+        if prompt_save_game():
+            save_game()
         # Prompt to play again
         if not play_again():
             print('Thanks for contributing!')

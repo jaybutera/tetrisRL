@@ -72,7 +72,7 @@ class TetrisEngine:
     def __init__(self, width, height):
         self.width = width
         self.height = height
-        self.board = np.zeros(shape=(width, height), dtype=np.float)
+        self.board = np.zeros(shape=(width, height), dtype=np.bool)
 
         # actions are triggered by letters
         self.value_action_map = {
@@ -168,7 +168,8 @@ class TetrisEngine:
                 self._new_piece()
 
         self._set_piece(True)
-        state = np.copy(self.board)
+        #state = np.copy(self.board)
+        state = self.board
         self._set_piece(False)
         return state, reward, done
 
