@@ -3,10 +3,10 @@ import numpy as np
 import torch.optim as optim
 import torch.nn as nn
 import torch
-#from torch.autograd import Variable
 
-#FloatTensor = torch.FloatTensor
-#LongTensor = torch.LongTensor
+# Hyperparameters
+batch_size = 32
+# -----------
 
 def train(X_batch, Y_batch):
     optimizer.zero_grad()
@@ -26,11 +26,25 @@ def save_checkpoint(state, filename):
 
 def load_dataset(filename):
     data = np.load('training_data.npy', allow_pickle=True)
-    X_train = np.stack(data[:,0],
+    X = np.stack(data[:,0],
             axis=0).reshape((len(data),1,len(data[0][0]),len(data[0][0][0]))) # States reshaped for CNN
-    Y_train = data[:,3] # player's moves
+    Y = data[:,3] # player's moves
+    X = torch.tensor(X, dtype=torch.float32)
+    Y = torch.tensor(Y.astype('uint8'), dtype=torch.uint8)
 
-    return X_train.astype('float32'), Y_train.astype('uint8')
+    n = int(len(X) * 0.9)
+    X_train, Y_train = X[:n], Y[:n]
+    X_val, Y_val = X[n:], Y[n:]
+
+    return X_train, Y_train, X_val, Y_val
+
+def get_batch(split):
+    # generate a small batch of data of inputs x and targets y
+    (x_data, y_data) = (X_train, Y_train) if split == 'train' else (X_val, Y_val)
+    ix = torch.randint(len(x_data), (batch_size,))
+    x = torch.stack([x_data[i] for i in ix])
+    y = torch.stack([y_data[i] for i in ix])
+    return x,y
 
 if __name__ == '__main__':
     model = DQN()
@@ -38,25 +52,14 @@ if __name__ == '__main__':
     criterion = nn.CrossEntropyLoss()
 
     # Load data
-    X_train, Y_train = load_dataset('training_data.npy')
+    X_train, Y_train, X_val, Y_val = load_dataset('training_data.npy')
 
     # Training loop
     for epoch in range(100):
         # Randomize and batch training data
-        batchsize = 32
-        # Randomly shuffle each epoch
-        np.random.shuffle(X_train)
-        np.random.shuffle(Y_train)
-        # Batch
-        X = np.array_split( X_train, batchsize) # States
-        Y = np.array_split( Y_train, batchsize) # Actions
-
+        X_batch,Y_batch = get_batch('train')
         loss = 0.
-        for X_batch, Y_batch in zip(X,Y):
-            X_batch = torch.tensor(X_batch, requires_grad=False)
-            Y_batch = torch.tensor(Y_batch, requires_grad=False)
-            #Y_batch = Variable(LongTensor(Y_batch), raequires_grad=False)
-            loss += train(X_batch, Y_batch)
+        loss += train(X_batch, Y_batch)
 
         if epoch % 10 == 0:
             save_checkpoint({
@@ -64,5 +67,6 @@ if __name__ == '__main__':
                 'best_score' : 0.,
                 'state_dict' : model.state_dict()
                 }, 'supervised_checkpoint.pth.tar')
-            print('[{0}] loss: {1}'.format(epoch+1, loss))
+            val_loss = criterion(model(X_val), Y_val).item()
+            print('[{0}] train loss: {1:.2f} | val loss: {2:.2f}'.format(epoch+1, loss, val_loss))
 
