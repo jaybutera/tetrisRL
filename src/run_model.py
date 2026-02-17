@@ -1,10 +1,16 @@
 import curses
 import sys
 import os
+import numpy as np
 import torch
 import time
 from src.engine import TetrisEngine
 from src.dqn_agent import BasicFF, ReplayMemory, Transition
+
+# Pickle needs these classes visible in __main__ to unpickle checkpoints
+import __main__
+__main__.ReplayMemory = ReplayMemory
+__main__.Transition = Transition
 
 use_cuda = torch.cuda.is_available()
 
@@ -18,21 +24,23 @@ def load_model(filename):
     model = BasicFF()
     if use_cuda:
         model.cuda()
-    checkpoint = torch.load(filename, weights_only=False)
+    checkpoint = torch.load(filename, weights_only=False,
+                            map_location='cpu')
     model.load_state_dict(checkpoint['state_dict'])
 
     return model
 
 def run(model):
-    state = FloatTensor(engine.clear()[None,None,:,:])
+    state = torch.from_numpy(engine.clear()[None,None,:,:].astype(np.float32))
     score = 0
     while True:
         with torch.no_grad():
-            action = model(state.type(FloatTensor)).data.max(1)[1].view(1,1).type(LongTensor)
-            print(model(state.type(FloatTensor)).data)
+            q_values = model(state.type(FloatTensor)).data
+            action = q_values.max(1)[1].view(1,1).type(LongTensor)
+            print(q_values)
 
         state, reward, done = engine.step(action.item())
-        state = FloatTensor(state[None,None,:,:])
+        state = torch.from_numpy(state[None,None,:,:].astype(np.float32))
 
         # Accumulate reward
         score += int(reward)

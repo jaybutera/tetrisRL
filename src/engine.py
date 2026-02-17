@@ -151,11 +151,15 @@ class TetrisEngine:
 
         # Update time and reward
         self.time += 1
-        reward = self.valid_action_count()
+        #reward = self.valid_action_count()
+        reward = 1  # survival reward
 
         done = False
         if self._has_dropped():
             self._set_piece(True)
+            # Reward progress toward full rows
+            max_fill = max(np.sum(self.board[:, i]) for i in range(self.height))
+            reward += max_fill ** 2 / self.width
             reward += 100 * self._clear_lines()
             if np.any(self.board[:, 0]):
                 self.clear()
@@ -165,9 +169,9 @@ class TetrisEngine:
             else:
                 self._new_piece()
 
+        # Build state with piece shown
         self._set_piece(True)
-        #state = np.copy(self.board)
-        state = self.board
+        state = np.copy(self.board)
         self._set_piece(False)
         return state, reward, done
 

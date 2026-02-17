@@ -155,10 +155,10 @@ class BasicFF(nn.Module):
 #
 
 BATCH_SIZE = 64
-GAMMA = 0.8
-EPS_START = 0.9
-EPS_END = 0.05
-EPS_DECAY = 5000
+GAMMA = 0.95
+TAU_START = 1.0
+TAU_END = 0.1
+TAU_DECAY = 15000
 TARGET_UPDATE = 50
 TRAIN_STEPS = 4
 REWARD_SCALE = 0.01
@@ -168,16 +168,15 @@ steps_done = 0
 
 
 @torch.no_grad()
-def select_action(state, steps_done):
-    sample = random.random()
-    eps_threshold = EPS_END + (EPS_START - EPS_END) * \
-        math.exp(-1. * steps_done / EPS_DECAY)
+def select_action(state):
+    global steps_done
+    tau = TAU_END + (TAU_START - TAU_END) * \
+        math.exp(-1. * steps_done / TAU_DECAY)
     steps_done += 1
-    if sample > eps_threshold:
-        actions = model(state.type(FloatTensor))
-        return actions.data.max(1)[1].view(1, 1)
-    else:
-        return FloatTensor([[random.randrange(engine.nb_actions)]])
+    q_values = model(state.type(FloatTensor))
+    probs = F.softmax(q_values / tau, dim=-1)
+    action = torch.multinomial(probs, 1)
+    return action
 
 
 episode_durations = []
@@ -233,11 +232,11 @@ def optimize_model():
                                           batch.next_state)), dtype=torch.bool)
 
     with torch.no_grad():
-        non_final_next_states = torch.cat([s for s in batch.next_state
+        non_final_next_states = torch.stack([s.squeeze(0) for s in batch.next_state
                                                 if s is not None])
-    state_batch = torch.cat(batch.state)
-    action_batch = torch.cat(batch.action)
-    reward_batch = torch.cat(batch.reward)
+    state_batch = torch.stack([s.squeeze(0) for s in batch.state])
+    action_batch = torch.stack([a.squeeze(0) for a in batch.action])
+    reward_batch = torch.stack([r.squeeze(0) for r in batch.reward])
 
     state_action_values = model(state_batch).gather(1, action_batch.long()).squeeze()
 
@@ -276,13 +275,10 @@ def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
 def load_checkpoint(filename):
     checkpoint = torch.load(filename, weights_only=False)
     model.load_state_dict(checkpoint['state_dict'])
-    try: # If these fail, its loading a supervised model
+    try:
         optimizer.load_state_dict(checkpoint['optimizer'])
-        memory = checkpoint['memory']
     except Exception as e:
         pass
-    # Low chance of random action
-    #steps_done = 10 * EPS_DECAY
 
     return checkpoint['epoch'], checkpoint['best_score']
 
@@ -325,36 +321,38 @@ if __name__ == '__main__':
     # fails), we restart the loop.
 
     steps_done = 0
-    f = open('log.out', 'w+')
+    f = open('log.out', 'a' if start_epoch > 0 else 'w')
     for i_episode in count(start_epoch):
         # Initialize the environment and state
-        state = FloatTensor(engine.clear()[None,None,:,:])
+        state = torch.from_numpy(engine.clear()[None,None,:,:].astype(np.float32))
 
         score = 0
         for t in count():
             # Select and perform an action
-            action = select_action(state, steps_done).type(LongTensor)
+            action = select_action(state).type(LongTensor)
 
             # Observations
             last_state = state
             state, reward, done = engine.step(action.item())
-            state = FloatTensor(state[None,None,:,:])
+            state = torch.from_numpy(state[None,None,:,:].astype(np.float32))
 
             # Accumulate reward
             score += int(reward)
 
-            reward = FloatTensor([float(reward) * REWARD_SCALE])
+            reward = torch.tensor([float(reward) * REWARD_SCALE])
             # Store the transition in memory
             memory.push(last_state, action, state, reward)
 
-            # Perform one step of the optimization (on the target network)
+            # Train every 4 steps during gameplay
+            if t % 20 == 0:
+                optimize_model()
+
             if done:
-                # Train model - multiple steps per episode
-                log = 'epoch {0} score {1}'.format(i_episode, score)
-                f.write(log + '\n')
-                loss_val = None
-                for _ in range(TRAIN_STEPS):
-                    loss_val = optimize_model()
+                loss_val = optimize_model()
+                if i_episode % 10 == 0:
+                    log = f'epoch {i_episode} score {score} loss {loss_val}'
+                    f.write(log + '\n')
+                    f.flush()
                 if loss_val and i_episode % 100 == 0:
                     print(f'[{i_episode}] loss: {loss_val:.2f} score: {score}')
                 # Update target network
@@ -368,7 +366,6 @@ if __name__ == '__main__':
                         'state_dict' : model.state_dict(),
                         'best_score' : best_score,
                         'optimizer' : optimizer.state_dict(),
-                        'memory' : memory
                         }, is_best)
                 break
 
