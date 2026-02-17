@@ -3,9 +3,8 @@ import sys
 import os
 import torch
 import time
-from engine import TetrisEngine
-from dqn_agent import BasicFF, ReplayMemory, Transition
-from torch.autograd import Variable
+from src.engine import TetrisEngine
+from src.dqn_agent import BasicFF, ReplayMemory, Transition
 
 use_cuda = torch.cuda.is_available()
 
@@ -19,7 +18,7 @@ def load_model(filename):
     model = BasicFF()
     if use_cuda:
         model.cuda()
-    checkpoint = torch.load(filename)
+    checkpoint = torch.load(filename, weights_only=False)
     model.load_state_dict(checkpoint['state_dict'])
 
     return model
@@ -28,10 +27,9 @@ def run(model):
     state = FloatTensor(engine.clear()[None,None,:,:])
     score = 0
     while True:
-        action = model(Variable(state,
-            volatile=True).type(FloatTensor)).data.max(1)[1].view(1,1).type(LongTensor)
-        print( model(Variable(state,
-            volatile=True).type(FloatTensor)).data)
+        with torch.no_grad():
+            action = model(state.type(FloatTensor)).data.max(1)[1].view(1,1).type(LongTensor)
+            print(model(state.type(FloatTensor)).data)
 
         state, reward, done = engine.step(action.item())
         state = FloatTensor(state[None,None,:,:])
@@ -50,11 +48,11 @@ def run(model):
             print('score {0}'.format(score))
             break
 
-if len(sys.argv) <= 1:
-    print('specify a filename to load the model')
-    sys.exit(1)
-
 if __name__ == '__main__':
+    if len(sys.argv) <= 1:
+        print('specify a filename to load the model')
+        sys.exit(1)
+
     filename = sys.argv[1]
     if os.path.isfile(filename):
         print("=> loading model '{}'".format(filename))

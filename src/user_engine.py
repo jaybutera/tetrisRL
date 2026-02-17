@@ -1,7 +1,7 @@
 import curses
 import numpy as np
 import os
-from engine import TetrisEngine
+from src.engine import TetrisEngine
 
 def play_game():
     # Store play information
@@ -42,7 +42,7 @@ def play_game():
         # Game step
         state, reward, done = env.step(action)
         reward_sum += reward
-        db.append(np.array((state,reward,done,action)))
+        db.append((state,reward,done,action))
         '''
         states.append(state)
         rewards.append(reward)
@@ -84,22 +84,35 @@ def prompt_save_game():
     return True if choice.lower() == 'y' else False
 
 def save_game(path='training_data.npy'):
+    db_array = np.array(db, dtype=object)
     if os.path.exists(path):
         x = np.load(path, allow_pickle=True)
-        x = np.concatenate((x,db))
-        np.save(path, x)
+        x = np.concatenate((x, db_array))
+        np.save(path, x, allow_pickle=True)
         print('{0} data points in the training set'.format(len(x)))
     else:
         print('no training file exists. Creating one now...')
         #fw = open('training_data.npy', 'wb')
         print('Saving {0} moves...'.format(len(db)))
-        np.save(path, db)
+        np.save(path, db_array, allow_pickle=True)
 
 def terminate():
-    curses.nocbreak()
-    stdscr.keypad(False)
-    curses.echo()
-    curses.endwin()
+    try:
+        curses.nocbreak()
+    except:
+        pass
+    try:
+        stdscr.keypad(False)
+    except:
+        pass
+    try:
+        curses.echo()
+    except:
+        pass
+    try:
+        curses.endwin()
+    except:
+        pass
     os.system("stty sane")
 
 def init():

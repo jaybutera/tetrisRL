@@ -7,7 +7,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 import random
 import time
-from engine import TetrisEngine
+from src.engine import TetrisEngine
 from torch.utils.tensorboard import SummaryWriter
 writer = SummaryWriter()
 
@@ -23,7 +23,7 @@ class PolicyNetwork(nn.Module):
         self.fc2 = nn.Linear(self.fc1_dims, self.fc2_dims)
         self.fc3 = nn.Linear(self.fc2_dims, self.n_actions)
         self.optimizer = optim.Adam(self.parameters(), lr=lr)
-        self.device = T.device('cuda:0' if T.cuda.is_available() else 'cpu:0')
+        self.device = T.device('cuda:0' if T.cuda.is_available() else 'cpu')
 
         self.to(self.device)
 
@@ -45,7 +45,7 @@ class Agent(object):
         self.loss_idx = 0
 
     def choose_action(self, observation):
-        probabilities = F.softmax(self.policy.forward(observation))
+        probabilities = F.softmax(self.policy.forward(observation), dim=-1)
         action_prob = T.distributions.Categorical(probabilities)
         action = action_prob.sample()
         log_probs = action_prob.log_prob(action)

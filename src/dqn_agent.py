@@ -15,9 +15,8 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
-from torch.autograd import Variable
 
-from engine import TetrisEngine
+from src.engine import TetrisEngine
 
 width, height = 10, 20 # standard tetris friends rules
 engine = TetrisEngine(width, height)
@@ -34,7 +33,7 @@ use_cuda = torch.cuda.is_available()
 if use_cuda:print("....Using Gpu...")
 FloatTensor = torch.cuda.FloatTensor if use_cuda else torch.FloatTensor
 LongTensor = torch.cuda.LongTensor if use_cuda else torch.LongTensor
-ByteTensor = torch.cuda.ByteTensor if use_cuda else torch.ByteTensor
+BoolTensor = torch.cuda.BoolTensor if use_cuda else torch.BoolTensor
 #Tensor = FloatTensor
 
 
@@ -134,10 +133,11 @@ class BasicFF(nn.Module):
 #
 
 BATCH_SIZE = 64
-GAMMA = 0.999
+GAMMA = 0.8
 EPS_START = 0.9
 EPS_END = 0.05
-EPS_DECAY = 200
+EPS_DECAY = 5000
+TARGET_UPDATE = 50
 CHECKPOINT_FILE = 'checkpoint.pth.tar'
 steps_done = 0
 
@@ -151,7 +151,7 @@ def select_action(state, steps_done):
     steps_done += 1
     if sample > eps_threshold:
         with torch.no_grad():
-            actions = model(Variable(state).type(FloatTensor))
+            actions = model(state.type(FloatTensor))
             final_action = actions.data.max(1)[1].view(1, 1)
             # print the prob distribution sometimes
             #if random.random() < 0.001:
@@ -215,27 +215,27 @@ def optimize_model():
     batch = Transition(*zip(*transitions))
 
     # Compute a mask of non-final states and concatenate the batch elements
-    non_final_mask = ByteTensor(tuple(map(lambda s: s is not None,
-                                          batch.next_state)))
+    non_final_mask = torch.tensor(tuple(map(lambda s: s is not None,
+                                          batch.next_state)), dtype=torch.bool)
 
     # We don't want to backprop through the expected action values and volatile
     # will save us on temporarily changing the model parameters'
     # requires_grad to False!
     with torch.no_grad():
-        non_final_next_states = Variable(torch.cat([s for s in batch.next_state
-                                                if s is not None]))
-    state_batch = Variable(torch.cat(batch.state))
-    action_batch = Variable(torch.cat(batch.action))
-    reward_batch = Variable(torch.cat(batch.reward))
+        non_final_next_states = torch.cat([s for s in batch.next_state
+                                                if s is not None])
+    state_batch = torch.cat(batch.state)
+    action_batch = torch.cat(batch.action)
+    reward_batch = torch.cat(batch.reward)
 
     # Compute Q(s_t, a) - the model computes Q(s_t), then we select the
     # columns of actions taken
-    state_action_values = model(state_batch).gather(1, action_batch)
+    state_action_values = model(state_batch).gather(1, action_batch.long())
 
     # Compute V(s_{t+1}) for all next states.
     with torch.no_grad():
-        next_state_values = Variable(torch.zeros(BATCH_SIZE).type(FloatTensor))
-    next_state_values[non_final_mask] = model(non_final_next_states).max(1)[0]
+        next_state_values = torch.zeros(BATCH_SIZE).type(FloatTensor)
+    next_state_values[non_final_mask] = target_model(non_final_next_states).max(1)[0]
     # Now, we don't want to mess up the loss with a volatile flag, so let's
     # clear it. After this, we'll just end up with a Variable that has
     # requires_grad=False
@@ -243,7 +243,7 @@ def optimize_model():
     expected_state_action_values = (next_state_values * GAMMA) + reward_batch
 
     # Compute Huber loss
-    loss = F.smooth_l1_loss(state_action_values, expected_state_action_values)
+    loss = F.smooth_l1_loss(state_action_values.squeeze(), expected_state_action_values)
 
     # Optimize the model
     optimizer.zero_grad()
@@ -267,7 +267,7 @@ def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
         shutil.copyfile(filename, 'model_best.pth.tar')
 
 def load_checkpoint(filename):
-    checkpoint = torch.load(filename)
+    checkpoint = torch.load(filename, weights_only=False)
     model.load_state_dict(checkpoint['state_dict'])
     try: # If these fail, its loading a supervised model
         optimizer.load_state_dict(checkpoint['optimizer'])
@@ -281,13 +281,17 @@ def load_checkpoint(filename):
 
 if __name__ == '__main__':
     model = BasicFF()
+    target_model = BasicFF()
+    target_model.load_state_dict(model.state_dict())
+    target_model.eval()
     print(model)
 
     if use_cuda:
         model.cuda()
+        target_model.cuda()
 
     loss = nn.MSELoss()
-    optimizer = optim.RMSprop(model.parameters(), lr=.001)
+    optimizer = optim.RMSprop(model.parameters(), lr=1e-4)
     memory = ReplayMemory(3000)
 
     # Check if user specified to resume from a checkpoint
@@ -299,6 +303,7 @@ if __name__ == '__main__':
         if os.path.isfile(CHECKPOINT_FILE):
             print("=> loading checkpoint '{}'".format(CHECKPOINT_FILE))
             start_epoch, best_score = load_checkpoint(CHECKPOINT_FILE)
+            target_model.load_state_dict(model.state_dict())
             print("=> loaded checkpoint '{}' (epoch {})"
                   .format(CHECKPOINT_FILE, start_epoch))
         else:
@@ -327,25 +332,25 @@ if __name__ == '__main__':
             last_state = state
             state, reward, done = engine.step(action.item())
             state = FloatTensor(state[None,None,:,:])
-            
+
             # Accumulate reward
             score += int(reward)
 
             reward = FloatTensor([float(reward)])
             # Store the transition in memory
-            if reward > 0:
-                memory.push(last_state, action, state, reward)
+            memory.push(last_state, action, state, reward)
 
             # Perform one step of the optimization (on the target network)
             if done:
                 # Train model
-                if i_episode % 100 == 0:
-                    log = 'epoch {0} score {1}'.format(i_episode, score)
-                    #print(log)
-                    f.write(log + '\n')
-                    loss = optimize_model()
-                    if loss:
-                        print(f'[{i_episode}] loss: {loss:.2f}')
+                log = 'epoch {0} score {1}'.format(i_episode, score)
+                f.write(log + '\n')
+                loss_val = optimize_model()
+                if loss_val and i_episode % 100 == 0:
+                    print(f'[{i_episode}] loss: {loss_val:.2f} score: {score}')
+                # Update target network
+                if i_episode % TARGET_UPDATE == 0:
+                    target_model.load_state_dict(model.state_dict())
                 # Checkpoint
                 if i_episode % 100 == 0:
                     is_best = True if score > best_score else False
@@ -360,7 +365,3 @@ if __name__ == '__main__':
 
     f.close()
     print('Complete')
-    #env.render(close=True)
-    #env.close()
-    #plt.ioff()
-    #plt.show()

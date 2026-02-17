@@ -1,4 +1,4 @@
-from dqn_agent import BasicFF
+from src.dqn_agent import BasicFF
 import numpy as np
 import torch.optim as optim
 import torch.nn as nn
@@ -27,7 +27,7 @@ def save_checkpoint(state, filename):
     #torch.load(
 
 def load_dataset(filename):
-    data = np.load('training_data.npy', allow_pickle=True)
+    data = np.load(filename, allow_pickle=True)
     X = np.stack(data[:,0],
             axis=0).reshape((len(data),1,len(data[0][0]),len(data[0][0][0]))) # States reshaped for CNN
     Y = data[:,3] # player's moves

@@ -72,7 +72,7 @@ class TetrisEngine:
     def __init__(self, width, height):
         self.width = width
         self.height = height
-        self.board = np.zeros(shape=(width, height), dtype=np.bool)
+        self.board = np.zeros(shape=(width, height), dtype=np.bool_)
 
         # actions are triggered by letters
         self.value_action_map = {
@@ -113,7 +113,7 @@ class TetrisEngine:
     def _new_piece(self):
         # Place randomly on x-axis with 2 tiles padding
         #x = int((self.width/2+1) * np.random.rand(1,1)[0,0]) + 2
-        self.anchor = (self.width / 2, 0)
+        self.anchor = (self.width // 2, 0)
         #self.anchor = (x, 0)
         self.shape = self._choose_shape()
 
@@ -152,8 +152,6 @@ class TetrisEngine:
         # Update time and reward
         self.time += 1
         reward = self.valid_action_count()
-        #reward = random.randint(0, 0)
-        reward = 1
 
         done = False
         if self._has_dropped():
