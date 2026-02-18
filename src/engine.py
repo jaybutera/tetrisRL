@@ -157,9 +157,12 @@ class TetrisEngine:
         done = False
         if self._has_dropped():
             self._set_piece(True)
-            # Reward progress toward full rows
-            max_fill = max(np.sum(self.board[:, i]) for i in range(self.height))
-            reward += max_fill ** 2 / self.width
+            # Reward based on fill of rows this piece touched
+            piece_rows = set(self.anchor[1] + j for _, j in self.shape
+                            if 0 <= self.anchor[1] + j < self.height)
+            for row in piece_rows:
+                fill = np.sum(self.board[:, row])
+                reward += (fill / self.width) ** 2 * self.width
             reward += 100 * self._clear_lines()
             if np.any(self.board[:, 0]):
                 self.clear()

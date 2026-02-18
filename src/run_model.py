@@ -5,7 +5,8 @@ import numpy as np
 import torch
 import time
 from src.engine import TetrisEngine
-from src.dqn_agent import BasicFF, ReplayMemory, Transition
+from collections import deque
+from src.dqn_agent import BasicFF, ReplayMemory, Transition, FRAME_STACK, make_stacked_state
 
 # Pickle needs these classes visible in __main__ to unpickle checkpoints
 import __main__
@@ -31,7 +32,9 @@ def load_model(filename):
     return model
 
 def run(model):
-    state = torch.from_numpy(engine.clear()[None,None,:,:].astype(np.float32))
+    first_frame = engine.clear()
+    frames = deque([first_frame] * FRAME_STACK, maxlen=FRAME_STACK)
+    state = make_stacked_state(frames)
     score = 0
     while True:
         with torch.no_grad():
@@ -39,8 +42,9 @@ def run(model):
             action = q_values.max(1)[1].view(1,1).type(LongTensor)
             print(q_values)
 
-        state, reward, done = engine.step(action.item())
-        state = torch.from_numpy(state[None,None,:,:].astype(np.float32))
+        new_frame, reward, done = engine.step(action.item())
+        frames.append(new_frame)
+        state = make_stacked_state(frames)
 
         # Accumulate reward
         score += int(reward)

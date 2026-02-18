@@ -7,7 +7,7 @@ import shutil
 import numpy as np
 #import matplotlib
 #import matplotlib.pyplot as plt
-from collections import namedtuple
+from collections import namedtuple, deque
 from itertools import count
 from copy import deepcopy
 
@@ -83,7 +83,12 @@ class ReplayMemory(object):
 
     def update_priorities(self, indices, td_errors):
         for idx, td in zip(indices, td_errors):
-            self.priorities[idx] = abs(td) + 1e-6
+            prio = abs(td) + 1e-6
+            # Keep high-reward transitions sampled more often
+            #reward = abs(float(self.memory[idx].reward))
+            #if reward > 0.5:  # after REWARD_SCALE, this means raw reward > 50
+            #    prio = max(prio, 0.1)
+            self.priorities[idx] = prio
 
     def __len__(self):
         return len(self.memory)
@@ -112,10 +117,12 @@ class DQN(nn.Module):
         return self.head(x.view(x.size(0), -1))
 '''
 
+FRAME_STACK = 3
+
 class BasicFF(nn.Module):
     def __init__(self, fan_in=200, fan_out=7):
         super().__init__()
-        self.conv1 = nn.Conv2d(1, 32, kernel_size=3, padding=1)
+        self.conv1 = nn.Conv2d(FRAME_STACK, 32, kernel_size=3, padding=1)
         self.conv2 = nn.Conv2d(32, 64, kernel_size=3, padding=1)
         self.pool = nn.MaxPool2d(2)
         self.conv3 = nn.Conv2d(64, 64, kernel_size=3, padding=1)
@@ -123,9 +130,6 @@ class BasicFF(nn.Module):
         self.fc2 = nn.Linear(256, fan_out)
 
     def forward(self, x):
-        if len(x.shape) == 2:
-            # Flat input (200,) -> (1, 10, 20)
-            x = x.view(x.shape[0], 1, 10, 20)
         x = F.relu(self.conv1(x))
         x = F.relu(self.conv2(x))
         x = self.pool(x)
@@ -133,6 +137,10 @@ class BasicFF(nn.Module):
         x = x.view(x.shape[0], -1)
         x = F.relu(self.fc1(x))
         return self.fc2(x)
+
+def make_stacked_state(frames):
+    """Stack a deque of frames into a single (1, FRAME_STACK, 10, 20) tensor."""
+    return torch.from_numpy(np.stack(list(frames), axis=0)[None].astype(np.float32))
        
 ######################################################################
 # Training
@@ -156,9 +164,9 @@ class BasicFF(nn.Module):
 
 BATCH_SIZE = 64
 GAMMA = 0.95
-TAU_START = 1.0
-TAU_END = 0.1
-TAU_DECAY = 15000
+EPS_START = 0.9
+EPS_END = 0.01
+EPS_DECAY = 15000
 TARGET_UPDATE = 50
 TRAIN_STEPS = 4
 REWARD_SCALE = 0.01
@@ -170,13 +178,14 @@ steps_done = 0
 @torch.no_grad()
 def select_action(state):
     global steps_done
-    tau = TAU_END + (TAU_START - TAU_END) * \
-        math.exp(-1. * steps_done / TAU_DECAY)
+    eps = EPS_END + (EPS_START - EPS_END) * \
+        math.exp(-1. * steps_done / EPS_DECAY)
     steps_done += 1
-    q_values = model(state.type(FloatTensor))
-    probs = F.softmax(q_values / tau, dim=-1)
-    action = torch.multinomial(probs, 1)
-    return action
+    if random.random() > eps:
+        q_values = model(state.type(FloatTensor))
+        return q_values.max(1)[1].view(1, 1)
+    else:
+        return torch.tensor([[random.randrange(engine.nb_actions)]], dtype=torch.long)
 
 
 episode_durations = []
@@ -280,7 +289,7 @@ def load_checkpoint(filename):
     except Exception as e:
         pass
 
-    return checkpoint['epoch'], checkpoint['best_score']
+    return checkpoint['epoch'], checkpoint['best_score'], checkpoint.get('memory')
 
 if __name__ == '__main__':
     model = BasicFF()
@@ -305,8 +314,14 @@ if __name__ == '__main__':
             CHECKPOINT_FILE = sys.argv[2]
         if os.path.isfile(CHECKPOINT_FILE):
             print("=> loading checkpoint '{}'".format(CHECKPOINT_FILE))
-            start_epoch, best_score = load_checkpoint(CHECKPOINT_FILE)
+            start_epoch, best_score, saved_memory = load_checkpoint(CHECKPOINT_FILE)
             target_model.load_state_dict(model.state_dict())
+            if saved_memory is not None:
+                memory = saved_memory
+                print("=> loaded replay buffer from checkpoint")
+            elif os.path.isfile('replay_buffer.pth.tar'):
+                memory = torch.load('replay_buffer.pth.tar', weights_only=False)
+                print("=> loaded replay buffer from replay_buffer.pth.tar")
             print("=> loaded checkpoint '{}' (epoch {})"
                   .format(CHECKPOINT_FILE, start_epoch))
         else:
@@ -321,10 +336,18 @@ if __name__ == '__main__':
     # fails), we restart the loop.
 
     steps_done = 0
-    f = open('log.out', 'a' if start_epoch > 0 else 'w')
+    log_mode = 'a' if start_epoch > 0 else 'w'
+    f = open('log.out', log_mode)
+    import csv
+    csv_file = open('log.csv', log_mode, newline='')
+    csv_writer = csv.writer(csv_file)
+    if log_mode == 'w':
+        csv_writer.writerow(['epoch', 'score', 'loss'])
     for i_episode in count(start_epoch):
         # Initialize the environment and state
-        state = torch.from_numpy(engine.clear()[None,None,:,:].astype(np.float32))
+        first_frame = engine.clear()
+        frames = deque([first_frame] * FRAME_STACK, maxlen=FRAME_STACK)
+        state = make_stacked_state(frames)
 
         score = 0
         for t in count():
@@ -333,8 +356,9 @@ if __name__ == '__main__':
 
             # Observations
             last_state = state
-            state, reward, done = engine.step(action.item())
-            state = torch.from_numpy(state[None,None,:,:].astype(np.float32))
+            new_frame, reward, done = engine.step(action.item())
+            frames.append(new_frame)
+            state = make_stacked_state(frames)
 
             # Accumulate reward
             score += int(reward)
@@ -353,6 +377,8 @@ if __name__ == '__main__':
                     log = f'epoch {i_episode} score {score} loss {loss_val}'
                     f.write(log + '\n')
                     f.flush()
+                    csv_writer.writerow([i_episode, score, loss_val])
+                    csv_file.flush()
                 if loss_val and i_episode % 100 == 0:
                     print(f'[{i_episode}] loss: {loss_val:.2f} score: {score}')
                 # Update target network
@@ -367,6 +393,8 @@ if __name__ == '__main__':
                         'best_score' : best_score,
                         'optimizer' : optimizer.state_dict(),
                         }, is_best)
+                    if i_episode % 1000 == 0:
+                        torch.save(memory, 'replay_buffer.pth.tar')
                 break
 
     f.close()
